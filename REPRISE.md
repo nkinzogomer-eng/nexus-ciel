@@ -1,24 +1,29 @@
 # Journal de reprise Nexus Ciel
 
 ## Point d’arrêt
-- Phase 0: **VALIDÉE** par CI GitHub run 1, conclusion `success`.
-- Phase 1: implémentée dans le commit `feat: implement Phase 1 adaptive router with provider health and acceptance tests`.
-- La CI doit valider la Phase 1 avant toute Phase 2.
+- Phase 0: **VALIDÉE**, CI run 1: `success`.
+- Phase 1: code livré dans `59d97e2`.
+- CI Phase 1: verdict non observable dans l’ancienne configuration; la CI a été durcie dans le commit `ci: make validation reproducible and observable for every phase`.
 
-## Phase 0 livré et validé
-- Contrats Pydantic, Event Bus in-process, State Graph, Mission Journal chaîné, Capability Registry.
-- API minimale, tests d’acceptation, CI Python 3.12.
+## Correctif CI
+- Ajout de `workflow_dispatch` pour relancer manuellement.
+- Permissions minimales `contents: read`.
+- Annulation des runs obsolètes par branche.
+- Timeout de 10 minutes.
+- Cache pip et exécution explicite de `pytest -q`.
 
 ## Phase 1 livré
-- Contrat ProviderAdapter, health checks et deux fournisseurs abstraits: Ollama/local et fournisseur secondaire.
-- AdaptiveRouter avec cache sémantique, seuil de confiance, escalade et journal des décisions.
-- Tests d’acceptation: fournisseur le moins coûteux suffisant, escalade tracée, indisponibilité et cache.
+- ProviderAdapter, health checks, fournisseur local et secondaire.
+- AdaptiveRouter avec cache, seuil de confiance et escalade tracée.
+- Tests d’acceptation: coût minimal suffisant, escalade justifiée, fournisseur indisponible, cache.
 
-## Critère de sortie Phase 1
-La mission doit utiliser l’étage le moins coûteux suffisant; toute escalade doit être tracée et justifiée; un fournisseur indisponible doit être retiré du routage.
+## Contrôle de conformité en cours
+- Le contrat global exige que le Router applique une politique versionnée, sans apprendre en direct.
+- La version actuelle fournit un routeur fonctionnel mais encore en mémoire, sans politique YAML versionnée, télémétrie persistante, Redis ni AI Gateway.
+- Ces écarts sont acceptables uniquement comme incrément Phase 1 et doivent être fermés avant la clôture complète de la Phase 1.
 
-## Suite bloquée par CI
-Phase 2: mémoire indexée + Belzébuth. Ne pas l’implémenter si la CI Phase 1 est rouge.
+## Règle de progression
+Ne pas commencer Phase 2 tant que la CI du dernier commit est verte et que les tests d’acceptation Phase 1 passent. Si la CI échoue, corriger la cause, pousser un commit correctif et relancer.
 
-## Règle de continuité
-À chaque phase: code suivi, tests d’acceptation, CI verte, journal mis à jour, commit identifiable. En cas d’échec CI, corriger la cause puis relancer avant d’avancer.
+## Suite
+Après validation Phase 1: Phase 2 = Memory Core indexé + Belzébuth, avec source de vérité unique, fiches de savoir-faire structurées, gestion des échecs et tests de réutilisation.
