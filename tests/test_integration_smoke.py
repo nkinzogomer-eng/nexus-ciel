@@ -23,6 +23,7 @@ async def test_mission_is_served_by_the_cheapest_level_end_to_end():
     assert report is not None and state is not None
     assert report.verdict == "PASS"
     assert state.status == "validated"
+    assert state.resumable_after_crash is False
     assert report.cost_usd == 0.0
     assert report.actions[-1]["stage"] == "small_model"
     assert runtime.journal.verify_chain()
