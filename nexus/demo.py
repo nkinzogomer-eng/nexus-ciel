@@ -19,10 +19,16 @@ from nexus.router import AdaptiveRouter
 from nexus.schemas import Mission
 
 
-async def run(objective: str, local_confidence: float, local_available: bool) -> dict:
+async def run(
+    objective: str,
+    local_confidence: float,
+    local_available: bool,
+    secondary_confidence: float = 0.90,
+) -> dict:
     router = AdaptiveRouter(
         [
-            SecondaryProvider(),  # declared first on purpose: the cascade must reorder it
+            # declared first on purpose: the cascade must reorder it
+            SecondaryProvider(confidence=secondary_confidence),
             LocalProvider(confidence=local_confidence, available=local_available),
         ]
     )
@@ -43,6 +49,7 @@ async def run(objective: str, local_confidence: float, local_available: bool) ->
         "verdict": report.verdict,
         "summary": report.summary,
         "cost_usd": report.cost_usd,
+        "cost_avoided_usd": router.total_cost_avoided_usd,
         "trace": report.actions,
         "journal_chain_valid": runtime.journal.verify_chain(),
         "journal_entries": [e.type for e in runtime.journal.entries()],
@@ -55,8 +62,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("objective", nargs="?", default="summarise the sprint")
     parser.add_argument("--local-confidence", type=float, default=0.80)
     parser.add_argument("--local-unavailable", action="store_true")
+    parser.add_argument(
+        "--secondary-confidence",
+        type=float,
+        default=0.90,
+        help="lower it below the policy threshold to exercise the unroutable path",
+    )
     args = parser.parse_args(argv)
-    out = asyncio.run(run(args.objective, args.local_confidence, not args.local_unavailable))
+    out = asyncio.run(
+        run(
+            args.objective,
+            args.local_confidence,
+            not args.local_unavailable,
+            args.secondary_confidence,
+        )
+    )
     print(json.dumps(out, indent=2, ensure_ascii=False))
     return 0 if out["verdict"] == "PASS" else 1
 

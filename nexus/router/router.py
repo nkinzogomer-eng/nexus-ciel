@@ -36,6 +36,8 @@ class RoutingDecision:
     latency_ms: float = 0.0
     input_tokens: int = 0
     output_tokens: int = 0
+    cost_avoided_usd: float = 0.0
+    error: str | None = None
 
 
 class SemanticCache(Protocol):
@@ -103,27 +105,67 @@ class AdaptiveRouter:
             key = request.cache_key()
             cached = await self.cache.get(key)
             if cached is not None and cached.confidence >= threshold:
-                self._record(
-                    stage="cache",
-                    provider="cache",
-                    result=cached,
-                    escalated=False,
-                    reason="cached result met policy threshold",
-                    attempt=0,
+                # A cache hit spends nothing. Billing it at the price of the
+                # call it replaces would make the cascade look expensive at the
+                # exact moment it is saving money.
+                self.decisions.append(
+                    RoutingDecision(
+                        stage="cache",
+                        provider="cache",
+                        confidence=cached.confidence,
+                        escalated=False,
+                        reason="cached result met policy threshold",
+                        cost_usd=0.0,
+                        cost_avoided_usd=cached.cost_usd,
+                        stage_rank=self.policy.stage_rank("cache"),
+                        attempt=0,
+                        latency_ms=0.0,
+                        input_tokens=cached.input_tokens,
+                        output_tokens=cached.output_tokens,
+                    )
                 )
                 return cached
 
         attempt = 0
         skipped: list[str] = []
         for provider in self.eligible_providers(request):
-            health = await provider.health()
-            if not health.available:
-                skipped.append(
-                    f"{provider.name}({provider.stage}): {health.detail or 'unavailable'}"
-                )
+            label = f"{provider.name}({provider.stage})"
+
+            try:
+                health = await provider.health()
+            except Exception as exc:
+                # A health probe that blows up is an unavailable provider,
+                # not a reason to abort the mission.
+                skipped.append(f"{label}: health check raised {type(exc).__name__}: {exc}")
                 continue
+            if not health.available:
+                skipped.append(f"{label}: {health.detail or 'unavailable'}")
+                continue
+
             started = time.perf_counter()
-            result = await provider.complete(request)
+            try:
+                result = await provider.complete(request)
+            except Exception as exc:
+                # Same rule one level deeper: a provider failing must escalate,
+                # visibly, instead of propagating a raw exception to the caller.
+                self.decisions.append(
+                    RoutingDecision(
+                        stage=provider.stage,
+                        provider=provider.name,
+                        confidence=0.0,
+                        escalated=attempt > 0,
+                        reason="provider error",
+                        cost_usd=0.0,
+                        stage_rank=self.policy.stage_rank(provider.stage),
+                        attempt=attempt,
+                        latency_ms=(time.perf_counter() - started) * 1000.0,
+                        error=f"{type(exc).__name__}: {exc}",
+                    )
+                )
+                skipped.append(f"{label}: raised {type(exc).__name__}: {exc}")
+                attempt += 1
+                continue
+
             elapsed_ms = (time.perf_counter() - started) * 1000.0
             sufficient = result.confidence >= threshold
             self._record(
@@ -180,7 +222,13 @@ class AdaptiveRouter:
 
     @property
     def total_cost_usd(self) -> float:
+        """What was actually spent. Cache hits contribute nothing."""
         return round(sum(d.cost_usd for d in self.decisions), 10)
+
+    @property
+    def total_cost_avoided_usd(self) -> float:
+        """What the cache saved, kept separate from what was spent."""
+        return round(sum(d.cost_avoided_usd for d in self.decisions), 10)
 
     def trace(self) -> list[dict[str, object]]:
         """Human-readable escalation trace for reports and audits."""
@@ -192,7 +240,9 @@ class AdaptiveRouter:
                 "escalated": d.escalated,
                 "reason": d.reason,
                 "cost_usd": d.cost_usd,
+                "cost_avoided_usd": d.cost_avoided_usd,
                 "latency_ms": round(d.latency_ms, 3),
+                "error": d.error,
             }
             for d in self.decisions
         ]

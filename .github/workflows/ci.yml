@@ -10,9 +10,13 @@ on:
 permissions:
   contents: read
 
+# Cancelling in-flight runs is fine on a pull request branch, where only the
+# latest push matters. On main it destroys the evidence: run #6 was killed 11
+# seconds in by the next commit, and its phase was then treated as unproven.
+# Every commit landing on main must get to a conclusion of its own.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   tests:
@@ -30,3 +34,7 @@ jobs:
         run: pytest -q
       - name: End-to-end smoke run
         run: python -m nexus.demo "ci smoke mission"
+      - name: Unroutable path still fails cleanly
+        run: |
+          python -m nexus.demo "ci unroutable mission" \
+            --local-confidence 0.1 --secondary-confidence 0.2 && exit 1 || exit 0

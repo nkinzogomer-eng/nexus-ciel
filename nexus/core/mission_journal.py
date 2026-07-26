@@ -5,6 +5,35 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
+
+def _signature(
+    seq: int,
+    mission_id: UUID,
+    event_type: str,
+    actor: str,
+    payload: dict[str, Any],
+    previous_hash: str,
+) -> str:
+    """Deterministic signature over an entry's full content.
+
+    Everything that gives the entry its meaning goes into the hash. Without
+    that, the chain proves ordering only, never integrity.
+    """
+    body = json.dumps(
+        {
+            "seq": seq,
+            "mission_id": str(mission_id),
+            "type": event_type,
+            "actor": actor,
+            "payload": payload,
+            "precedent_hash": previous_hash,
+        },
+        sort_keys=True,
+        default=str,
+    )
+    return hashlib.sha256(body.encode()).hexdigest()
+
+
 class JournalEntry:
     def __init__(self, seq: int, mission_id: UUID, event_type: str, actor: str, payload: dict[str, Any], signature: str, previous_hash: str):
         self.seq, self.mission_id, self.type, self.actor = seq, mission_id, event_type, actor
@@ -17,6 +46,13 @@ class JournalEntry:
         data["mission_id"] = str(self.mission_id)
         return data
 
+    def recomputed_signature(self) -> str:
+        """Signature the entry's current content would produce today."""
+        return _signature(
+            self.seq, self.mission_id, self.type, self.actor, self.payload, self.precedent_hash
+        )
+
+
 class MissionJournal:
     def __init__(self) -> None:
         self._entries: list[JournalEntry] = []
@@ -24,9 +60,9 @@ class MissionJournal:
     def append(self, mission_id: UUID, event_type: str, actor: str, payload: dict[str, Any] | None = None) -> JournalEntry:
         payload = payload or {}
         previous = self._entries[-1].signature if self._entries else "GENESIS"
-        body = json.dumps({"seq": len(self._entries) + 1, "mission_id": str(mission_id), "type": event_type, "actor": actor, "payload": payload, "precedent_hash": previous}, sort_keys=True)
-        signature = hashlib.sha256(body.encode()).hexdigest()
-        entry = JournalEntry(len(self._entries) + 1, mission_id, event_type, actor, payload, signature, previous)
+        seq = len(self._entries) + 1
+        signature = _signature(seq, mission_id, event_type, actor, payload, previous)
+        entry = JournalEntry(seq, mission_id, event_type, actor, payload, signature, previous)
         self._entries.append(entry)
         return entry
 
@@ -34,9 +70,22 @@ class MissionJournal:
         return [e for e in self._entries if mission_id is None or e.mission_id == mission_id]
 
     def verify_chain(self) -> bool:
+        """True only if every entry is correctly linked *and* unmodified.
+
+        Checking links alone made the journal tamper-tolerant: rewriting a
+        payload in place left every precedent_hash intact and went unnoticed.
+        """
         previous = "GENESIS"
-        for entry in self._entries:
+        for position, entry in enumerate(self._entries, start=1):
+            if entry.seq != position:
+                return False
             if entry.precedent_hash != previous:
+                return False
+            if entry.signature != entry.recomputed_signature():
                 return False
             previous = entry.signature
         return True
+
+    def tampered_entries(self) -> list[int]:
+        """Sequence numbers whose content no longer matches their signature."""
+        return [e.seq for e in self._entries if e.signature != e.recomputed_signature()]
