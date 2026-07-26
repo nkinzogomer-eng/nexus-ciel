@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException, status
-from nexus.core import NexusRuntime
+from nexus.persistence import build_runtime
 from nexus.schemas import Mission
 
 app = FastAPI(title="Nexus Ciel", version="0.1.0")
-runtime = NexusRuntime()
+runtime = build_runtime()
 
 @app.post("/mission", status_code=status.HTTP_202_ACCEPTED)
 async def create_mission(mission: Mission) -> dict[str, str]:

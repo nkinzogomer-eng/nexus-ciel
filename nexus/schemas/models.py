@@ -29,7 +29,7 @@ class MissionState(BaseModel):
     objective: str
     status: Literal["planned", "in_progress", "validated", "abandoned"] = "planned"
     iterations: int = 0
-    resumable_after_crash: bool = True
+    resumable_after_crash: bool = False
 
 class Report(BaseModel):
     schema_version: int = 1

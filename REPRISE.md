@@ -6,9 +6,9 @@
 
 - Objectif: Nexus Ciel **interne d'abord**, auto-heberge sur un hote maitrise.
 - Vision: Manas gele, capacites/politiques probatoires et reversibles, apprentissage hors mission, cascade economique, validation en couches.
-- Dernier commit: `7d86b58` (`fix: unblock Phase 1 CI and make the routing policy a real read-only contract`).
-- Phase active: **Phase 1 close sur CI verte. Ouverture de la Phase 2.**
-- CI: run `#8` sur `7d86b58` **vert**. C'est le premier run vert couvrant la Phase 1.
+- Dernier commit `main` observe: `a9e9ab6` (`docs: close Phase 1 on a green CI run and hand off to Phase 2`).
+- CI observee sur `main`: check `tests` du commit `a9e9ab6` **completed/success** (demarre `2026-07-26T13:57:30Z`, termine `2026-07-26T13:57:46Z`).
+- Phase active: **Phase 2 ouverte. Chantier en cours: fondations de persistance et reprise apres crash, sans valider encore la phase.**
 
 ## Verite sur l'historique CI
 
@@ -17,6 +17,7 @@ La consigne precedente attendait un run vert sur `086ad85`. Ce run n'a jamais pu
 - Run `#6` (`086ad85`): **annule**. Le groupe de concurrence `ci-${{ github.ref }}` avec `cancel-in-progress` l'a tue 11 secondes plus tard, quand `9f9f545` a ete pousse.
 - Run `#7` (`9f9f545`): **rouge**. `tests/test_phase1_acceptance.py` faisait `from nexus.router import AdaptiveRouter, RoutingPolicy` alors que `nexus/router/__init__.py` n'exportait pas `RoutingPolicy`. ImportError a la collecte: **aucun test de Phase 1 ne s'est jamais execute**.
 - Run `#8` (`7d86b58`): **vert**. Correctif d'export plus fermeture des ecarts de conformite.
+- Check `tests` sur `a9e9ab6`: **vert**. La documentation Phase 1/2 sur `main` est coherente avec l'etat du depot.
 
 Lecon retenue: un run annule n'est pas un run en cours. Verifier la conclusion du run, pas seulement son existence.
 
@@ -31,7 +32,7 @@ Lecon retenue: un run annule n'est pas un run en cours. Verifier la conclusion d
 - [ ] Persistance PostgreSQL/Alembic et reprise apres crash reelle.
 - [ ] Docker Compose reproductible.
 
-Tout l'etat vit encore en memoire de processus. `MissionState.resumable_after_crash` vaut `True` alors que rien ne survit a un redemarrage: c'est le mensonge le plus couteux du prototype et il doit tomber en Phase 2.
+Tout l'etat vit encore en memoire de processus tant qu'aucun store durable n'est configure. `MissionState.resumable_after_crash` n'a plus le droit de mentir: il reste `False` en runtime ephemere et ne passe a `True` que dans le chemin persistant.
 
 ## Phase 1: routage economique
 
@@ -61,6 +62,23 @@ Le Router choisit le niveau le moins couteux suffisant, trace chaque escalade, i
 - [ ] Cache semantique Redis. Bloque tant que la persistance de Phase 0 n'existe pas.
 - [ ] Telemetrie **persistante**. Elle est aujourd'hui en memoire, donc perdue au redemarrage.
 
+## Phase 2: fondations posees dans cette branche, phase non validee
+
+### Livre et prouve par les tests de cette branche
+
+- [x] `MissionState.resumable_after_crash` n'est `True` que sur le chemin durable; le runtime purement memoire reste explicitement non resumable.
+- [x] Store deterministe sur fichier capable de recharger etats, rapports, journal et registre apres restart.
+- [x] Reprise minimale prouvee apres crash en milieu de mission: une mission acceptee reste visible `in_progress` apres redemarrage du runtime persistant.
+- [x] Composition additive hors `core/`: `PersistentRuntime` et stores externes branchent la durabilite sans ecrire dans Manas/Core.
+- [x] Fondation PostgreSQL/Alembic ajoutee: table de snapshot JSONB, migration initiale, factory de runtime, `Dockerfile` et `docker-compose.yml`.
+
+### Ce qui reste avant de cocher Phase 0 persistance / Docker Compose
+
+- [ ] Prouver en CI une restauration **sur PostgreSQL reel** (pas seulement store fichier) avec migration Alembic appliquee.
+- [ ] Ajouter une preuve reproductible que `docker compose up --build` restaure un etat deja present dans le volume `postgres_data`.
+- [ ] Decider si le snapshot unique JSONB reste suffisant ou s'il faut passer a des tables normalisees avant la memoire Phase 2.
+- [ ] Prevoir la reprise des missions inachevees apres crash (rejouer/abandonner explicitement), pas seulement leur presence persistante.
+
 ## Ce qui tourne vraiment aujourd'hui
 
 ```bash
@@ -71,28 +89,20 @@ python -m nexus.demo "resume le sprint"
 
 Une mission traverse reellement le State Graph, le journal chaine, l'Event Bus et la cascade economique, puis rend un rapport avec verdict, cout reel et trace d'escalade. `NexusRuntime(router=...)` execute par la cascade; sans router il garde le comportement trivial de Phase 0.
 
-Trois scenarios verifies: le local suffit (cout 0), le local echoue et on escalade en payant, le local est hors ligne et on bascule. Une mission irroutable finit `FAIL` et `abandoned`, sans boucle.
+En branche persistance, quatre scenarios sont maintenant verifies: le local suffit (cout 0), le local echoue et on escalade en payant, le local est hors ligne et on bascule, et un runtime persistant recharge un etat accepte apres redemarrage. Une mission irroutable finit `FAIL` et `abandoned`, sans boucle.
 
 ## Dette ouverte a traiter
 
 - PR `#1` (`robin/phase1-routing-policy-telemetry`) est **obsolete**: elle visait les memes ecarts depuis `f78f38d` et est desormais depassee par `main`. A fermer ou rebaser avant toute autre chose, sinon elle reintroduira des conflits.
 - Le zip historique `nexus-ciel-complete.zip` et les deux PDF de specification restent a la racine. Une seule arborescence canonique: les deplacer dans `docs/` ou les retirer.
-- `tests/test_phase0_acceptance.py` partage le `runtime` global de `nexus.api.app`, donc l'ordre des tests compte. A isoler par fixture quand la persistance arrivera.
+- `tests/test_phase0_acceptance.py` partage le `runtime` global de `nexus.api.app`, donc l'ordre des tests compte. A isoler par fixture quand la persistance arrivera completement.
+- Le store PostgreSQL persiste pour l'instant un **snapshot unique** du runtime. C'est reversible et suffisant pour prouver la reprise, mais pas encore assez fin pour la memoire Phase 2 ni pour l'audit multi-missions a long terme.
 
-## Prochaine etape: Phase 2
+## Prochaine etape concrete
 
-La CI est verte, la Phase 2 peut commencer. Ordre recommande:
-
-1. Fermer d'abord la persistance de Phase 0 (PostgreSQL/Alembic, Docker Compose, reprise apres crash). Construire la memoire sur un runtime volatile serait a refaire.
-2. [ ] Concevoir le contrat Memory Core sans dupliquer les sources canoniques.
-3. [ ] Ajouter SkillCard versionnee: contexte, methode, pieges, cout, taux de reussite, provenance, statut hypothese/confirmee.
-4. [ ] Implementer d'abord un adaptateur memoire deterministe en test, puis pgvector.
-5. [ ] Ajouter seuil strict, fraicheur, provenance, invalidation et gestion des souvenirs contradictoires.
-6. [ ] Brancher l'etage `memory` de la cascade sur le Memory Core: il est declare mais aucun fournisseur ne l'occupe.
-7. [ ] Implementer Belzebuth pour transformer les missions terminees en SkillCards, reussites et echecs.
-8. [ ] Confirmer une SkillCard apres deux missions sources, jamais apres une seule.
-9. [ ] Ajouter un test de reutilisation mesurant une baisse d'iterations ou de cout.
-10. [ ] Ajouter un test prouvant que Belzebuth ne modifie jamais le Capability Registry.
+1. Ajouter un test d'acceptation CI qui demarre PostgreSQL, applique Alembic, accepte une mission, recree le runtime et verifie la restauration depuis la base.
+2. Rendre le smoke Compose reproductible (commande documentee + verification de volume persistant).
+3. Ensuite seulement, attaquer le contrat Memory Core / SkillCard de la Phase 2.
 
 ## Roadmap restante
 
