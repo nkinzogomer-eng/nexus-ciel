@@ -12,12 +12,28 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: nexus_ciel
+          POSTGRES_USER: nexus
+          POSTGRES_PASSWORD: nexus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexus -d nexus_ciel"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      NEXUS_DATABASE_URL: postgresql://nexus:nexus@localhost:5432/nexus_ciel
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -26,7 +42,16 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: pip install -e '.[test]'
+      - name: Apply PostgreSQL migrations
+        run: alembic upgrade head
       - name: Acceptance tests
         run: pytest -q
       - name: End-to-end smoke run
         run: python -m nexus.demo "ci smoke mission"
+      - name: Unroutable path must fail cleanly
+        run: |
+          if python -m nexus.demo "ci unroutable mission" \\
+            --local-confidence 0.1 --secondary-confidence 0.2; then
+            echo "unroutable mission unexpectedly passed"
+            exit 1
+          fi
