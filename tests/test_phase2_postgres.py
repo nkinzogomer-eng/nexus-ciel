@@ -1,5 +1,5 @@
 import os
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -12,7 +12,11 @@ from nexus.schemas import Mission
 
 @pytest.mark.asyncio
 async def test_postgres_store_restores_runtime_after_restart():
-    store = PostgresSnapshotStore(os.environ["NEXUS_DATABASE_URL"], snapshot_key="ci-phase2")
+    dsn = os.environ.get("NEXUS_DATABASE_URL")
+    if not dsn:
+        pytest.skip("set NEXUS_DATABASE_URL to run the live PostgreSQL persistence proof")
+
+    store = PostgresSnapshotStore(dsn, snapshot_key=f"ci-phase2-{uuid4()}")
     runtime = PersistentRuntime(store, router=AdaptiveRouter([LocalProvider(confidence=0.90)]))
     mission_id = await runtime.accept(Mission(objective="postgres restart proof"))
     restarted = PersistentRuntime(store)

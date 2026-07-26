@@ -28,8 +28,6 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
-    env:
-      NEXUS_DATABASE_URL: postgresql://nexus:nexus@localhost:5432/nexus_ciel
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -42,10 +40,16 @@ jobs:
         run: python -m compileall -q nexus tests
       - name: Show runtime dependency versions
         run: python -c "import fastapi,pydantic,sqlalchemy,psycopg; print(fastapi.__version__, pydantic.__version__, sqlalchemy.__version__, psycopg.__version__)"
+      - name: Acceptance tests (sans PostgreSQL live)
+        run: pytest -vv -x --ignore=tests/test_phase2_postgres.py
       - name: Apply PostgreSQL migrations
+        env:
+          NEXUS_DATABASE_URL: postgresql://nexus:nexus@localhost:5432/nexus_ciel
         run: alembic upgrade head
-      - name: Acceptance tests
-        run: pytest -vv -x
+      - name: PostgreSQL persistence proof
+        env:
+          NEXUS_DATABASE_URL: postgresql://nexus:nexus@localhost:5432/nexus_ciel
+        run: pytest -vv -x tests/test_phase2_postgres.py
       - name: End-to-end smoke run
         run: python -m nexus.demo "ci smoke mission"
       - name: Unroutable path must fail cleanly

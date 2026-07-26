@@ -24,7 +24,14 @@ pip install -e '.[test]'
 pytest -q
 ```
 
-46 tests d'acceptation. La CI GitHub execute les memes sur Python 3.12, puis rejoue la demo en succes et en echec.
+53 tests d'acceptation au total. Sans `NEXUS_DATABASE_URL`, le test PostgreSQL live de Phase 2 se saute proprement; la CI GitHub l'execute dans une etape dediee apres `alembic upgrade head`.
+
+Pour rejouer la preuve PostgreSQL en local:
+
+```bash
+NEXUS_DATABASE_URL=postgresql://nexus:nexus@localhost:5432/nexus_ciel alembic upgrade head
+NEXUS_DATABASE_URL=postgresql://nexus:nexus@localhost:5432/nexus_ciel pytest -q tests/test_phase2_postgres.py
+```
 
 ## Essayer en 10 secondes
 
