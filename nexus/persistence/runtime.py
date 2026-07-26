@@ -37,7 +37,10 @@ class FileSnapshotStore:
 class PersistentStateGraph(StateGraph):
     def __init__(self, states: list[MissionState], on_change) -> None:
         super().__init__()
-        self._states = {state.mission_id: state.model_copy(update={"resumable_after_crash": True}) for state in states}
+        self._states = {
+            state.mission_id: state.model_copy(update={"resumable_after_crash": True})
+            for state in states
+        }
         self._on_change = on_change
 
     def create(self, mission: Mission) -> MissionState:
@@ -65,7 +68,13 @@ class PersistentMissionJournal(MissionJournal):
         self._entries = list(entries)
         self._on_change = on_change
 
-    def append(self, mission_id: UUID, event_type: str, actor: str, payload: dict[str, Any] | None = None) -> JournalEntry:
+    def append(
+        self,
+        mission_id: UUID,
+        event_type: str,
+        actor: str,
+        payload: dict[str, Any] | None = None,
+    ) -> JournalEntry:
         entry = super().append(mission_id, event_type, actor, payload)
         self._on_change()
         return entry
@@ -101,12 +110,20 @@ class PersistentRuntime(NexusRuntime):
         self._loading = True
         super().__init__(router=router)
         snapshot = store.load() or self._empty_snapshot()
+        self._validate_snapshot(snapshot)
         self.state_graph = PersistentStateGraph(self._load_states(snapshot), self._flush)
         self.journal = PersistentMissionJournal(self._load_entries(snapshot), self._flush)
         self.registry = PersistentCapabilityRegistry(self._load_capabilities(snapshot), self._flush)
         self.reports = PersistentReportStore(self._load_reports(snapshot), self._flush)
         self._loading = False
         self._flush()
+
+    def _validate_snapshot(self, snapshot: dict[str, Any]) -> None:
+        if snapshot.get("schema_version") != self.SNAPSHOT_SCHEMA_VERSION:
+            raise ValueError(
+                "unsupported runtime snapshot schema: "
+                f"{snapshot.get('schema_version')!r}"
+            )
 
     def _empty_snapshot(self) -> dict[str, Any]:
         return {
@@ -119,7 +136,10 @@ class PersistentRuntime(NexusRuntime):
         }
 
     def _load_states(self, snapshot: dict[str, Any]) -> list[MissionState]:
-        return [MissionState.model_validate(item).model_copy(update={"resumable_after_crash": True}) for item in snapshot.get("states", [])]
+        return [
+            MissionState.model_validate(item).model_copy(update={"resumable_after_crash": True})
+            for item in snapshot.get("states", [])
+        ]
 
     def _load_entries(self, snapshot: dict[str, Any]) -> list[JournalEntry]:
         entries: list[JournalEntry] = []
@@ -161,5 +181,8 @@ class PersistentRuntime(NexusRuntime):
             ],
             "journal": [entry.as_dict() for entry in self.journal.entries()],
             "capabilities": [cap.model_dump(mode="json") for cap in self.registry.list()],
-            "reports": {mission_id: report.model_dump(mode="json") for mission_id, report in self.reports.items()},
+            "reports": {
+                mission_id: report.model_dump(mode="json")
+                for mission_id, report in self.reports.items()
+            },
         }
