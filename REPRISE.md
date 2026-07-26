@@ -1,145 +1,78 @@
 # Journal de reprise Nexus Ciel
 
-> Source de verite pour reprendre le projet. Une case n'est cochee que si le code et un test reproductible la justifient.
+> Source de vérité. Une case n'est cochée que si le code et un test reproductible la justifient.
 
 ## Position actuelle
 
-- Objectif: Nexus Ciel **interne d'abord**, auto-heberge sur un hote maitrise.
-- Vision: Manas gele, capacites/politiques probatoires et reversibles, apprentissage hors mission, cascade economique, validation en couches.
-- Commit de reference observe sur `main`: `ca216b8` (`docs: record the four execution-found defects and set the Phase 2 order`).
-- CI observee sur ce commit: **run #12, workflow `CI`, vert**.
+- Objectif: Nexus Ciel interne d'abord, auto-hébergé sur un hôte maîtrisé.
+- Vision: Manas gelé, capacités et politiques probatoires et réversibles, apprentissage hors mission, cascade économique, validation en couches.
+- Commit de référence main: `ca216b8`.
 - Phase active: **Phase 2 ouverte, persistance d'abord.**
-- Suite d'acceptation: **50 tests** (46 herites, 4 ajoutes pour verrouiller le scaffold de persistance).
+- PR #6: **scaffold Phase 2 validé par CI** sur `9aecfab`.
+- CI PR #6: run `30214062985`, job `89825040897`, conclusion **success**, 50 tests, 19 secondes.
+- Seul avertissement: dépréciation Node.js 20 des actions GitHub, sans impact sur Nexus Ciel.
 
-## Verite sur l'historique CI
-
-- Run `#6` (`086ad85`): **annule**. Le groupe de concurrence `cancel-in-progress` l'a tue 11 secondes apres son demarrage, quand `9f9f545` a ete pousse.
-- Run `#7` (`9f9f545`): **rouge**. `nexus/router/__init__.py` n'exportait pas `RoutingPolicy`, donc ImportError a la collecte: aucun test de Phase 1 ne s'est jamais execute.
-- Run `#8` (`7d86b58`): **vert**. Correctif d'export et fermeture des ecarts de conformite.
-- Correctif de fond dans `12e1587`: `cancel-in-progress` est desormais limite aux pull requests. Sur `main`, chaque commit va jusqu'a une conclusion. La cause racine de la confusion initiale est fermee, pas seulement son symptome.
-- Run `#12` (`ca216b8`): **vert**. Documentation de la lecon Phase 1 et ordre ferme pour Phase 2: persistance avant memoire.
-
-Lecon retenue: un run annule n'est pas un run en cours. Verifier la conclusion, pas l'existence.
-
-## Ce que la CI verte ne prouvait pas
-
-`7d86b58` etait vert. Quatre defauts reels vivaient dessous, tous trouves en **executant** le systeme, aucun visible en le relisant. Corriges dans `12e1587`.
-
-1. **Le Mission Journal etait falsifiable.** `verify_chain()` ne comparait que les pointeurs `precedent_hash`. Reecrire le `payload`, l'`actor` ou le `type` d'une entree en place laissait la chaine "valide". Un journal append-only qui ne detecte pas une modification de contenu prouve l'ordre, pas l'integrite. La signature est desormais recalculee sur le contenu complet a chaque verification, la continuite des `seq` est controlee, et `tampered_entries()` nomme les entrees fautives.
-2. **Un hit de cache etait facture au prix de l'appel evite.** La decision de cache portait le `cost_usd` du resultat memorise: un hit gratuit rapportait 0.02 et `total_cost_usd` comptait deux fois un seul appel reel. Le pilotage economique, coeur du projet, mentait exactement au moment ou il economisait. Un hit coute 0.0 et enregistre `cost_avoided_usd`.
-3. **Un fournisseur qui levait une exception tuait la mission.** `complete()` et `health()` etaient appeles sans garde: une `ConnectionError` d'un vrai Ollama traversait le Router. Pas d'escalade, pas de trace, pas de rapport FAIL. La cascade ne protegeait de rien des que les fournisseurs cessaient d'etre simules. Les deux appels sont contenus, l'echec devient une decision tracee `provider error`, et la cascade escalade.
-4. **La surface HTTP contournait la cascade.** `nexus/api/app.py` construisait un `NexusRuntime()` nu: toute mission postee en HTTP renvoyait le verdict bouchon de Phase 0 pendant que la demo et les tests exercaient le Router. Le seul point d'entree qu'un humain appelle etait le seul a mentir. L'API partage maintenant le runtime route et expose `/policy` en lecture seule.
-
-## Phase 0
+## Phase 0 et Phase 1
 
 - [x] Contrats Pydantic de base.
 - [x] Event Bus in-process.
 - [x] State Graph minimal.
-- [x] Mission Journal append-only chaine **et infalsifiable** (`12e1587`).
+- [x] Mission Journal chaîné et détection de falsification.
 - [x] Capability Registry probatoire.
-- [x] API minimale, branchee sur la cascade (`12e1587`).
-- [ ] Persistance PostgreSQL/Alembic et reprise apres crash reelle.
-- [ ] Docker Compose reproductible.
+- [x] API branchée sur la cascade.
+- [x] Router: politique read-only, cascade officielle, cache, télémétrie, escalade, erreurs bornées.
+- [ ] Persistance réellement branchée au runtime.
+- [ ] Reprise réelle après crash.
+- [ ] Docker Compose vérifié avec restauration d'un état existant.
 
-Tout l'etat vit encore en memoire de processus. `MissionState.resumable_after_crash` vaut `True` alors que rien ne survit a un redemarrage: c'est le mensonge le plus couteux du prototype et il doit tomber en premier.
+## Ce que PR #6 prouve
 
-## Phase 1: routage economique
+- Manifeste versionné couvrant `mission_states`, `mission_reports`, `mission_journal`, `capabilities` et `routing_telemetry`.
+- Baseline Alembic et configuration PostgreSQL.
+- Docker Compose avec PostgreSQL, volume persistant, migration avant démarrage API.
+- Dockerfile reproductible.
+- 50 tests CI verts pour verrouiller le scaffold et éviter de repartir de zéro.
 
-### Livre et prouve
+## Ce que PR #6 ne prouve pas
 
-- [x] Contrat fournisseur: `complete`, `health`, `cost_estimate`, `capabilities`.
-- [x] Cascade officielle: cache, memoire, formel, outil, petit modele, grand modele, profond.
-- [x] Politique versionnee reellement chargee depuis `policies/routing_policy_v1.json`, validee (schema, seuil, ordre de cascade, proprietaire, acces) et refusee si elle n'est pas `read_only`.
-- [x] Le Router n'ecrit jamais la politique: test comparant octets et mtime avant/apres routage, plus objet gele.
-- [x] Selection par rang de cascade puis par cout: l'ordre de declaration ne peut plus faire sauter un niveau moins cher.
-- [x] Un fournisseur dont l'etage est hors politique n'est jamais appele.
-- [x] `escalated` calcule sur les tentatives reelles.
-- [x] Cle de cache incluant `critical`: une mission critique ne reutilise pas une reponse relachee.
-- [x] Cache ignore si l'etage `cache` est retire de la politique.
-- [x] **Un hit de cache est gratuit et declare ce qu'il a evite** (`12e1587`).
-- [x] **Un fournisseur en panne ou qui leve escalade au lieu d'abandonner** (`12e1587`).
-- [x] Telemetrie par appel: etage, rang, tentative, latence, tokens, cout, erreur, plus `trace()` auditable.
-- [x] Echec borne et explicable (`RoutingExhausted`) nommant les fournisseurs ecartes et leurs erreurs.
+Le scaffold ne persiste encore aucun état de mission: le runtime reste en mémoire et `resumable_after_crash` reste un problème ouvert dans le core gelé. Ne pas cocher la persistance sur cette seule base.
 
-### Critere PASS Phase 1: atteint
+## Prochain jalon obligatoire: runtime durable
 
-Le Router choisit le niveau le moins couteux suffisant, trace chaque escalade, ignore les fournisseurs indisponibles **ou defaillants**, echoue sans boucle si aucun resultat n'atteint le seuil, respecte la cascade officielle et ne facture que ce qui a ete depense.
+1. Ajouter un adaptateur persistant hors `nexus/core` pour State Graph, rapports, journal, capacités et télémétrie.
+2. Faire écrire chaque mutation dans PostgreSQL avec transaction et idempotence.
+3. Tester la reprise d'une mission terminée après recréation du runtime.
+4. Tuer un processus pendant une mission, redémarrer, retrouver l'état `in_progress` et vérifier la chaîne du journal.
+5. Définir une politique explicite pour les missions inachevées: reprise, abandon contrôlé ou reprise humaine.
+6. Vérifier `docker compose up --build` et la restauration via `postgres_data`.
+7. Seulement après ces preuves, fermer la persistance Phase 0 et commencer Memory Core.
 
-### Reporte volontairement
+## Phase 2b: Memory Core et SkillCards
 
-- [ ] Remplacer les fournisseurs simules par Ollama/New-API derriere un AI Gateway reel. Le squelette de resilience existe (echec contenu, escalade); il manque retries bornes, timeout par appel et circuit breaker.
-- [ ] Cache semantique Redis. Bloque tant que la persistance de Phase 0 n'existe pas.
-- [ ] Telemetrie **persistante**. Aujourd'hui en memoire, perdue au redemarrage.
-- [ ] **Budget non applique.** `Mission.constraints.budget_usd` est declare, transporte, et ignore. Rien n'arrete une escalade qui depasse le budget annonce. Meme famille de mensonge que `resumable_after_crash`. Releve du Mission Guard, Phase 3, et doit y etre traite explicitement.
-
-## Ce qui tourne vraiment aujourd'hui
-
-```bash
-pip install -e '.[test]'
-pytest -q
-python -m nexus.demo "resume le sprint"
-python -m nexus.demo "probleme dur" --local-confidence 0.3
-python -m nexus.demo "panne locale" --local-unavailable
-python -m nexus.demo "impossible" --local-confidence 0.1 --secondary-confidence 0.2
-```
-
-Une mission traverse reellement le State Graph, le journal chaine, l'Event Bus et la cascade economique, puis rend un rapport avec verdict, cout reel, cout evite et trace d'escalade.
-
-Quatre scenarios verifies de bout en bout: le local suffit (cout 0), le local echoue et on escalade en payant, le local est hors ligne et on bascule, aucun niveau ne suffit et la mission finit `FAIL` / `abandoned` sans boucle. Le quatrieme n'etait atteignable que depuis un test: `--secondary-confidence` le rend accessible en ligne de commande, et la CI l'execute.
-
-## Dette ouverte a traiter
-
-- PR `#1` (`robin/phase1-routing-policy-telemetry`) est **obsolete**: elle visait les memes ecarts depuis `f78f38d` et est depassee deux fois par `main`. A fermer, pas a rebaser.
-- Le zip historique `nexus-ciel-complete.zip` et les deux PDF de specification restent a la racine. Une seule arborescence canonique: les deplacer dans `docs/` ou les retirer.
-- `tests/test_phase0_acceptance.py` et `test_regressions_phase1.py` partagent le `runtime` global de `nexus.api.app`. Tolerable aujourd'hui, a isoler par fixture des que la persistance arrive.
-- Le cache du Router est global au processus et sans expiration: une reponse memorisee reste valide indefiniment. A borner en meme temps que le cache Redis.
-- Le scaffold Phase 2 n'est **pas** une preuve de reprise apres crash: il fixe le schema vise, la baseline Alembic et le demarrage Compose, mais il n'ecrit encore aucun etat de mission hors memoire.
-
-## Prochaine etape: Phase 2
-
-Ordre non negociable: **la persistance avant la memoire**. Construire un Memory Core sur un runtime qui perd tout au redemarrage revient a le construire deux fois.
-
-### 2a. Fermer la persistance de Phase 0
-
-- [ ] Schema PostgreSQL et migrations Alembic pour State Graph, Mission Journal, Capability Registry, telemetrie de routage.
-- [ ] Docker Compose reproductible (Postgres + API), une commande, sans etape manuelle.
-- [ ] Test de reprise apres crash reel: tuer le processus en cours de mission, redemarrer, retrouver l'etat et une chaine de journal verifiee.
-- [ ] Faire de `resumable_after_crash` une propriete calculee, jamais un litteral `True`.
-
-### Preuves ajoutees dans cette branche
-
-- Un manifeste versionne (`nexus/persistence/manifest.py`) decrit les tables et colonnes minimales a tenir pour Phase 2a.
-- Un squelette Alembic pose une baseline unique pour ces tables, sans toucher `nexus/core`.
-- Un `docker-compose.yml` + `Dockerfile` decrivent le demarrage cible Postgres + API et la commande `alembic upgrade head` avant `uvicorn`.
-- Les tests de scaffold verrouillent ces contrats textuels pour eviter de repartir de zero au prochain reveil.
-
-### 2b. Memory Core et SkillCards
+À commencer uniquement après le jalon durable:
 
 - [ ] Contrat Memory Core sans dupliquer les sources canoniques.
-- [ ] SkillCard versionnee: contexte, methode, pieges, cout, taux de reussite, provenance, statut hypothese/confirmee.
-- [ ] Adaptateur memoire deterministe en test d'abord, pgvector ensuite.
-- [ ] Seuil strict, fraicheur, provenance, invalidation, souvenirs contradictoires.
-- [ ] Brancher l'etage `memory` de la cascade sur le Memory Core: il est declare mais aucun fournisseur ne l'occupe.
-- [ ] Belzebuth transforme les missions terminees en SkillCards, reussites comme echecs.
-- [ ] Une SkillCard n'est confirmee qu'apres deux missions sources, jamais une seule.
-- [ ] Test de reutilisation mesurant une baisse d'iterations ou de cout.
-- [ ] Test prouvant que Belzebuth ne modifie jamais le Capability Registry.
+- [ ] SkillCard versionnée: contexte, méthode, pièges, coût, succès, provenance, hypothèse/confirmée.
+- [ ] Adaptateur déterministe en test, pgvector ensuite.
+- [ ] Seuil, fraîcheur, provenance, invalidation et contradictions.
+- [ ] Brancher l'étage `memory` de la cascade.
+- [ ] Belzébuth transforme succès et échecs en SkillCards.
+- [ ] Confirmation après deux missions sources, jamais une seule.
+- [ ] Mesurer une baisse d'itérations ou de coût par réutilisation.
+- [ ] Prouver que Belzébuth ne modifie jamais le Capability Registry.
 
-## Roadmap restante
+## Dette et risques connus
 
-- Phase 3: Execution Fabric, Mission Guard (budget enfin applique), Validation Engine, rapports complets.
-- Phase 4: Gymnase rejouable et Evolution Engine, 20 replays, +5%, veto regression, rollback.
-- Phase 5: Capability Creation securise: oracle, second modele, sandbox niveau 3, probation, 10 succes.
-- Phase 6: Great Sage conditionnel et Formal Reasoning deterministe.
-- Phase 7: Redis Streams, OpenTelemetry, reprise sans perte et audit final.
+- Budget de mission déclaré mais pas encore bloquant: Mission Guard Phase 3.
+- Providers encore simulés: gateway réel, timeouts, retries bornés, circuit breaker à construire.
+- Cache en mémoire sans expiration et télémétrie non persistante.
+- Création de capacités prévue en Phase 5, avec oracle, second modèle, sandbox niveau 3, probation et 10 succès.
+- Zip historique et PDF de spécification encore à ranger dans une arborescence documentaire unique.
 
-## Regles de continuite
+## Règles de continuité
 
 - Lire ce fichier avant toute modification.
-- Une phase = code, tests d'acceptation, CI verte, checklist mise a jour, commit explicite.
-- Verifier la **conclusion** du run CI, pas son existence: un run annule ne prouve rien.
-- **Une suite verte prouve que les assertions ecrites tiennent, pas que le systeme marche.** Avant de fermer une phase, l'executer: falsifier une donnee censee etre protegee, debrancher un fournisseur, verifier que le cout rapporte correspond au cout paye, appeler la surface publique. Les quatre defauts de `12e1587` ont tous ete trouves ainsi.
-- En CI rouge: corriger avant toute nouvelle phase.
-- Une seule arborescence canonique; le zip historique reste une archive tant qu'il n'est pas retire par decision explicite.
-- Aucun secret dans Git; aucune capacite geree ne peut ecrire dans `core/`.
-- Ne jamais confondre prototype interne et production: interne n'autorise pas l'absence de garde-fous.
+- Une phase = code, tests d'acceptation, exécution réelle, CI verte, checklist mise à jour, commit explicite.
+- Une suite verte prouve les assertions écrites, pas le système entier: falsifier, débrancher, redémarrer et appeler la surface publique avant de fermer une phase.
+- Aucun secret dans Git; aucune capacité gérée ne peut écrire dans `core/`.
+- Ne jamais confondre prototype interne et production.
