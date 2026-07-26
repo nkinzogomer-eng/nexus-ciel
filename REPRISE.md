@@ -6,9 +6,9 @@
 
 - Objectif: Nexus Ciel **interne d'abord**, auto-hébergé sur un hôte maîtrisé. Pas de distribution publique ni de multi-tenant dans cette roadmap.
 - Vision conservée: noyau Manas gelé, capacités/politiques évolutives mais probatoires, apprentissage en arrière-plan, économie par cascade, validation en couches.
-- Dernier commit: `40131e9` (`ci: make validation reproducible and observable for every phase`).
-- CI: seul le run du commit Phase 0 `e1aba88` est actuellement observé vert. Les commits Phase 1 et `40131e9` restent **NON VALIDÉS par CI**.
-- Phase active: **Phase 1, fermeture de conformité et validation**.
+- Dernier commit de base observé sur `main`: `f78f38d` (`docs: establish roadmap, developer handoff checklist, and phase improvements`).
+- CI observée: **verte** sur `f78f38d` (`CI / tests` réussi le 2026-07-25 en 18s). La conformité Phase 1 renforcée doit maintenant être validée par la CI de cette PR avant tout passage à la phase suivante.
+- Phase active: **Phase 1, fermeture de conformité et validation finale**.
 
 ## Ce qui est réellement livré
 
@@ -19,24 +19,29 @@
 - [x] Capability Registry en mémoire, statut initial probationary.
 - [x] API minimale: `/mission`, état, rapport, `/capabilities`, `/health`.
 - [x] Router prototype: cache mémoire, health checks, deux fournisseurs abstraits, seuil de confiance et escalade.
-- [x] Tests d'acceptation de base et workflow CI Python 3.12.
+- [x] Contrat `ProviderAdapter`: `complete`, `health`, estimation de coût et capacités.
+- [x] Politique de routage versionnée en lecture seule avec cascade officielle `cache → memory → formal → tool → small_model → large_model → deep_reasoning`.
+- [x] Télémétrie structurée par appel: fournisseur, étage, coût estimé/réel, latence, tokens, succès/échec.
+- [x] Test négatif borné: aucun fournisseur suffisant produit un échec explicable.
+- [x] Tests d'acceptation Phase 1 étendus pour contrat, politique, télémétrie, cache et échec borné.
 - [ ] Persistance réelle: PostgreSQL, pgvector, Redis, migrations Alembic.
 - [ ] Déploiement Docker Compose reproductible.
 - [ ] Mission Guard et Validation Engine complets.
-- [ ] AI Gateway distinct du Router et contrat fournisseur complet.
-- [ ] Observabilité, Cost Monitor et rapports d'évolution/coûts.
+- [ ] AI Gateway distinct du Router et contrat fournisseur complet au-delà du prototype local.
+- [ ] Observabilité complète, Cost Monitor et rapports d'évolution/coûts.
 - [ ] Memory Core, Belzébuth, Gymnase, Evolution, Capability Creation et Great Sage.
 
-## Blocage immédiat: fermeture Phase 1
+## Travail Phase 1 en cours dans cette PR
 
-- [ ] Vérifier qu'un run CI est créé pour le dernier commit `40131e9`.
-- [ ] Si la CI échoue: lire le log, corriger la cause, pousser un commit correctif et relancer.
-- [ ] Ajouter un test de contrat ProviderAdapter: `complete`, `health`, estimation de coût et capacités.
-- [ ] Remplacer les noms d'étages simplifiés par la cascade officielle: cache, mémoire, formel, outil, petit modèle, grand modèle, profond.
-- [ ] Introduire une politique de routage versionnée en lecture seule pour le Router.
-- [ ] Ajouter télémétrie structurée par appel: fournisseur, étage, coût, latence, tokens, succès/échec.
-- [ ] Ajouter un test négatif: aucun fournisseur suffisant doit produire un échec borné et explicable.
-- [ ] Définition de sortie: CI verte sur le dernier commit + tests d'acceptation Phase 1 verts + checklist ci-dessus cochée.
+- [x] Vérifier un run CI exact pour le dernier commit `main` `f78f38d`.
+- [x] Ajouter un test de contrat `ProviderAdapter`: `complete`, `health`, estimation de coût et capacités.
+- [x] Remplacer les noms d'étages simplifiés par la cascade officielle côté politique et décisions (`small_model`, `large_model`, `cache`).
+- [x] Introduire une politique de routage versionnée en lecture seule pour le Router.
+- [x] Ajouter une télémétrie structurée par appel: fournisseur, étage, coût, latence, tokens, succès/échec.
+- [x] Ajouter un test négatif: aucun fournisseur suffisant doit produire un échec borné et explicable.
+- [ ] Séparer un AI Gateway distinct avec retries bornés, fallback et circuit breaker.
+- [ ] Ajouter Redis pour cache sémantique interne.
+- [ ] Définition de sortie de la phase: CI verte sur cette PR + tests Phase 1 verts + fermeture des deux écarts restants ci-dessus.
 
 ## Ce qui manque vraiment, par priorité
 
@@ -65,16 +70,16 @@
 Amélioration recommandée: ajouter un test de redémarrage qui recharge une mission inachevée depuis PostgreSQL et vérifie l'intégrité du Journal.
 
 ### Phase 1: économie et routage
-État: **prototype livré, validation CI manquante**.
+État: **conformité renforcée, validation CI de PR en attente**.
 
 - [x] Cache et escalade de base.
 - [x] Health checks et deux fournisseurs abstraits.
-- [ ] Cascade officielle à 7 niveaux.
-- [ ] Politique versionnée modifiable uniquement par Evolution Engine.
+- [x] Cascade officielle à 7 niveaux portée par une politique versionnée.
+- [x] Politique versionnée modifiable uniquement par remplacement explicite de politique, pas par mutation en place.
 - [ ] AI Gateway avec retries bornés, fallback, circuit breaker et télémétrie.
 - [ ] Redis pour cache sémantique interne.
 
-Amélioration recommandée: tester le Router avec missions normales et critiques, en vérifiant coût, latence, disponibilité, justification de chaque escalade et exclusion de GPT4Free des chemins critiques.
+Amélioration recommandée: tester ensuite le futur AI Gateway avec missions normales et critiques, en vérifiant coût, latence, disponibilité, justification de chaque escalade et exclusion de GPT4Free des chemins critiques.
 
 ### Phase 2: Memory Core + Belzébuth
 État: **à construire après validation Phase 1**.
@@ -137,6 +142,12 @@ Amélioration recommandée: tests reproductibles sur contraintes logiques et tes
 - [ ] Redémarrage sans perte d'événements et rapports d'audit.
 
 Amélioration recommandée: scénario de panne contrôlée avec reprise, déduplication d'événements et vérification de la chaîne d'audit.
+
+## Risques et prochain pas concret
+
+- Risque immédiat: la PR ne couvre pas encore l'AI Gateway distinct ni Redis; la phase 1 ne doit donc pas être déclarée terminée même si la CI de cette PR passe.
+- Risque secondaire: l'environnement sandbox local de l'agent ne fournit pas les dépendances Python du projet, donc la vérification reproductible repose sur la CI GitHub de la PR.
+- Prochain pas concret: attendre la CI de cette PR, corriger si elle échoue, puis seulement planifier l'AI Gateway distinct ou Redis comme dernier écart de Phase 1.
 
 ## Règles de continuité pour les développeurs
 
