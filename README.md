@@ -6,6 +6,8 @@ Nexus Ciel est un systeme d'orchestration et d'apprentissage **interne d'abord**
 
 **Phase 1 close et durcie (`12e1587`). Phase 2 ouverte, persistance d'abord.** Le Router respecte la cascade officielle, charge sa politique versionnee en lecture seule, contient les pannes de fournisseurs, trace chaque escalade et ne facture que ce qui est reellement depense. Le journal de mission detecte toute alteration de contenu. La Phase 0 reste incomplete sur la persistance: tout l'etat vit en memoire de processus.
 
+La branche de Phase 2 ajoute maintenant un **socle de persistance auditable** hors `nexus/core`: manifeste de schema, squelette Alembic, Docker Compose et garde-fous de non-regression. L'integration du runtime sur cette base reste ouverte tant que `core/` n'est pas modifie.
+
 Voir [REPRISE.md](REPRISE.md) pour l'etat detaille, la checklist cochable, les quatre defauts trouves en execution, la dette ouverte et la roadmap.
 
 ## Principes non negociables
@@ -24,7 +26,7 @@ pip install -e '.[test]'
 pytest -q
 ```
 
-46 tests d'acceptation. La CI GitHub execute les memes sur Python 3.12, puis rejoue la demo en succes et en echec.
+50 tests d'acceptation et de regression. La CI GitHub execute les memes sur Python 3.12, puis rejoue la demo en succes et en echec.
 
 ## Essayer en 10 secondes
 
@@ -45,6 +47,22 @@ uvicorn nexus.api.app:app --reload
 ```
 
 `POST /mission` accepte une mission et la fait passer **par la cascade**, pas par un bouchon. `GET /mission/{id}` rend l'etat, `GET /mission/{id}/report` le rapport complet avec la trace d'escalade et le cout, `GET /policy` la politique de routage en vigueur en lecture seule, `GET /health` l'etat du service et l'integrite du journal.
+
+## Persistance Phase 2 (scaffold)
+
+```bash
+pip install -e '.[postgres]'
+docker compose up --build
+```
+
+Le depot contient maintenant un squelette compose + Alembic pour PostgreSQL:
+
+- `docker-compose.yml` demarre `postgres` et `api`.
+- `Dockerfile` prepare l'image API avec l'extra `postgres`.
+- `nexus/persistence/manifest.py` decrit le contrat de schema a garder stable.
+- `migrations/versions/20260727_0300_phase2_persistence_baseline.py` pose la baseline a faire vivre ensuite dans une vraie base.
+
+Ce scaffold ne pretend pas encore rendre le runtime resumable apres crash: il prepare la preuve suivante sans ecrire dans `nexus/core`.
 
 ## Politique de routage
 

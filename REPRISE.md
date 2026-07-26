@@ -6,9 +6,10 @@
 
 - Objectif: Nexus Ciel **interne d'abord**, auto-heberge sur un hote maitrise.
 - Vision: Manas gele, capacites/politiques probatoires et reversibles, apprentissage hors mission, cascade economique, validation en couches.
-- Dernier commit: `12e1587` (`fix: close four defects the green Phase 1 suite could not see`).
-- Phase active: **Phase 1 close et durcie. Phase 2 ouverte, persistance d'abord.**
-- Suite d'acceptation: **46 tests** (33 heritees, 13 ajoutees en regression).
+- Commit de reference observe sur `main`: `ca216b8` (`docs: record the four execution-found defects and set the Phase 2 order`).
+- CI observee sur ce commit: **run #12, workflow `CI`, vert**.
+- Phase active: **Phase 2 ouverte, persistance d'abord.**
+- Suite d'acceptation: **50 tests** (46 herites, 4 ajoutes pour verrouiller le scaffold de persistance).
 
 ## Verite sur l'historique CI
 
@@ -16,6 +17,7 @@
 - Run `#7` (`9f9f545`): **rouge**. `nexus/router/__init__.py` n'exportait pas `RoutingPolicy`, donc ImportError a la collecte: aucun test de Phase 1 ne s'est jamais execute.
 - Run `#8` (`7d86b58`): **vert**. Correctif d'export et fermeture des ecarts de conformite.
 - Correctif de fond dans `12e1587`: `cancel-in-progress` est desormais limite aux pull requests. Sur `main`, chaque commit va jusqu'a une conclusion. La cause racine de la confusion initiale est fermee, pas seulement son symptome.
+- Run `#12` (`ca216b8`): **vert**. Documentation de la lecon Phase 1 et ordre ferme pour Phase 2: persistance avant memoire.
 
 Lecon retenue: un run annule n'est pas un run en cours. Verifier la conclusion, pas l'existence.
 
@@ -91,6 +93,7 @@ Quatre scenarios verifies de bout en bout: le local suffit (cout 0), le local ec
 - Le zip historique `nexus-ciel-complete.zip` et les deux PDF de specification restent a la racine. Une seule arborescence canonique: les deplacer dans `docs/` ou les retirer.
 - `tests/test_phase0_acceptance.py` et `test_regressions_phase1.py` partagent le `runtime` global de `nexus.api.app`. Tolerable aujourd'hui, a isoler par fixture des que la persistance arrive.
 - Le cache du Router est global au processus et sans expiration: une reponse memorisee reste valide indefiniment. A borner en meme temps que le cache Redis.
+- Le scaffold Phase 2 n'est **pas** une preuve de reprise apres crash: il fixe le schema vise, la baseline Alembic et le demarrage Compose, mais il n'ecrit encore aucun etat de mission hors memoire.
 
 ## Prochaine etape: Phase 2
 
@@ -102,6 +105,13 @@ Ordre non negociable: **la persistance avant la memoire**. Construire un Memory 
 - [ ] Docker Compose reproductible (Postgres + API), une commande, sans etape manuelle.
 - [ ] Test de reprise apres crash reel: tuer le processus en cours de mission, redemarrer, retrouver l'etat et une chaine de journal verifiee.
 - [ ] Faire de `resumable_after_crash` une propriete calculee, jamais un litteral `True`.
+
+### Preuves ajoutees dans cette branche
+
+- Un manifeste versionne (`nexus/persistence/manifest.py`) decrit les tables et colonnes minimales a tenir pour Phase 2a.
+- Un squelette Alembic pose une baseline unique pour ces tables, sans toucher `nexus/core`.
+- Un `docker-compose.yml` + `Dockerfile` decrivent le demarrage cible Postgres + API et la commande `alembic upgrade head` avant `uvicorn`.
+- Les tests de scaffold verrouillent ces contrats textuels pour eviter de repartir de zero au prochain reveil.
 
 ### 2b. Memory Core et SkillCards
 
@@ -131,5 +141,5 @@ Ordre non negociable: **la persistance avant la memoire**. Construire un Memory 
 - **Une suite verte prouve que les assertions ecrites tiennent, pas que le systeme marche.** Avant de fermer une phase, l'executer: falsifier une donnee censee etre protegee, debrancher un fournisseur, verifier que le cout rapporte correspond au cout paye, appeler la surface publique. Les quatre defauts de `12e1587` ont tous ete trouves ainsi.
 - En CI rouge: corriger avant toute nouvelle phase.
 - Une seule arborescence canonique; le zip historique reste une archive tant qu'il n'est pas retire par decision explicite.
-- Aucun secret dans Git; aucune capacite generee ne peut ecrire dans `core/`.
+- Aucun secret dans Git; aucune capacite geree ne peut ecrire dans `core/`.
 - Ne jamais confondre prototype interne et production: interne n'autorise pas l'absence de garde-fous.
