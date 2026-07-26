@@ -40,10 +40,12 @@ jobs:
       - run: pip install -e '.[test]'
       - name: Compile Python sources
         run: python -m compileall -q nexus tests
+      - name: Show runtime dependency versions
+        run: python -c "import fastapi,pydantic,sqlalchemy,psycopg; print(fastapi.__version__, pydantic.__version__, sqlalchemy.__version__, psycopg.__version__)"
       - name: Apply PostgreSQL migrations
         run: alembic upgrade head
       - name: Acceptance tests
-        run: pytest -q
+        run: pytest -vv -x
       - name: End-to-end smoke run
         run: python -m nexus.demo "ci smoke mission"
       - name: Unroutable path must fail cleanly
