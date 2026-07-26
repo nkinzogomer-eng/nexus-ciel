@@ -4,14 +4,19 @@ from logging.config import fileConfig
 import os
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool, MetaData, Table, Column, DateTime, String, text
+from sqlalchemy import Column, DateTime, MetaData, String, Table, engine_from_config, pool, text
 from sqlalchemy.dialects.postgresql import JSONB
+
+from nexus.persistence.dsn import normalize_postgres_dsn_for_sqlalchemy
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 if os.environ.get("NEXUS_DATABASE_URL"):
-    config.set_main_option("sqlalchemy.url", os.environ["NEXUS_DATABASE_URL"])
+    config.set_main_option(
+        "sqlalchemy.url",
+        normalize_postgres_dsn_for_sqlalchemy(os.environ["NEXUS_DATABASE_URL"]),
+    )
 
 metadata = MetaData()
 Table(
