@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, status
 
 from nexus.core import NexusRuntime
+from nexus.persistence import current_persistence_status
 from nexus.providers import LocalProvider, SecondaryProvider
 from nexus.router import AdaptiveRouter
 from nexus.schemas import Mission
@@ -61,9 +62,12 @@ async def policy():
 
 @app.get("/health")
 async def health():
+    persistence = current_persistence_status()
     return {
         "status": "ok",
         "version": "0.1.0",
         "routed": runtime.router is not None,
         "journal_chain_valid": runtime.journal.verify_chain(),
+        "persistence_backend": persistence.backend,
+        "crash_resumable": persistence.crash_resumable,
     }

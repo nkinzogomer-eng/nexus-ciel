@@ -6,9 +6,10 @@
 
 - Objectif: Nexus Ciel **interne d'abord**, auto-heberge sur un hote maitrise.
 - Vision: Manas gele, capacites/politiques probatoires et reversibles, apprentissage hors mission, cascade economique, validation en couches.
-- Dernier commit: `12e1587` (`fix: close four defects the green Phase 1 suite could not see`).
-- Phase active: **Phase 1 close et durcie. Phase 2 ouverte, persistance d'abord.**
-- Suite d'acceptation: **46 tests** (33 heritees, 13 ajoutees en regression).
+- Dernier commit observe sur `main`: `ca216b8` (`docs: record the four execution-found defects and set the Phase 2 order`).
+- CI observee sur ce commit exact: **verte**. La page `/commit/ca216b8f9b86effb150ff1df84e3a6ff117a2ddc/checks` montre le workflow `tests` reussi le Sat Jul 26.
+- Phase active: **Phase 2 ouverte, persistance d'abord. 2a entamee: l'honnetete de reprise est corrigee, la persistance reelle reste absente.**
+- Suite d'acceptation: **48 tests** (46 precedents, 2 ajoutes pour prouver l'honnetete de `resumable_after_crash` et de `/health`).
 
 ## Verite sur l'historique CI
 
@@ -39,7 +40,7 @@ Lecon retenue: un run annule n'est pas un run en cours. Verifier la conclusion, 
 - [ ] Persistance PostgreSQL/Alembic et reprise apres crash reelle.
 - [ ] Docker Compose reproductible.
 
-Tout l'etat vit encore en memoire de processus. `MissionState.resumable_after_crash` vaut `True` alors que rien ne survit a un redemarrage: c'est le mensonge le plus couteux du prototype et il doit tomber en premier.
+Tout l'etat vit encore en memoire de processus. `MissionState.resumable_after_crash` ne ment plus: il est maintenant **calcule a `False`** tant qu'aucun backend durable n'existe. La reprise reelle, elle, reste totalement a construire.
 
 ## Phase 1: routage economique
 
@@ -101,7 +102,7 @@ Ordre non negociable: **la persistance avant la memoire**. Construire un Memory 
 - [ ] Schema PostgreSQL et migrations Alembic pour State Graph, Mission Journal, Capability Registry, telemetrie de routage.
 - [ ] Docker Compose reproductible (Postgres + API), une commande, sans etape manuelle.
 - [ ] Test de reprise apres crash reel: tuer le processus en cours de mission, redemarrer, retrouver l'etat et une chaine de journal verifiee.
-- [ ] Faire de `resumable_after_crash` une propriete calculee, jamais un litteral `True`.
+- [x] Faire de `resumable_after_crash` une propriete calculee, jamais un litteral `True`.
 
 ### 2b. Memory Core et SkillCards
 

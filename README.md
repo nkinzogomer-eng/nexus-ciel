@@ -4,9 +4,9 @@ Nexus Ciel est un systeme d'orchestration et d'apprentissage **interne d'abord**
 
 ## Statut actuel
 
-**Phase 1 close et durcie (`12e1587`). Phase 2 ouverte, persistance d'abord.** Le Router respecte la cascade officielle, charge sa politique versionnee en lecture seule, contient les pannes de fournisseurs, trace chaque escalade et ne facture que ce qui est reellement depense. Le journal de mission detecte toute alteration de contenu. La Phase 0 reste incomplete sur la persistance: tout l'etat vit en memoire de processus.
+**Phase 1 close et durcie. Phase 2 ouverte, persistance d'abord.** Le Router respecte la cascade officielle, charge sa politique versionnee en lecture seule, contient les pannes de fournisseurs, trace chaque escalade et ne facture que ce qui est reellement depense. Le journal de mission detecte toute alteration de contenu. La Phase 0 reste incomplete sur la persistance: tout l'etat vit en memoire de processus, et `resumable_after_crash` est maintenant calcule a `False` tant qu'aucun backend durable n'existe.
 
-Voir [REPRISE.md](REPRISE.md) pour l'etat detaille, la checklist cochable, les quatre defauts trouves en execution, la dette ouverte et la roadmap.
+Voir [REPRISE.md](REPRISE.md) pour l'etat detaille, la checklist cochable, les ecarts fermes, la dette ouverte et la roadmap.
 
 ## Principes non negociables
 
@@ -24,16 +24,16 @@ pip install -e '.[test]'
 pytest -q
 ```
 
-46 tests d'acceptation. La CI GitHub execute les memes sur Python 3.12, puis rejoue la demo en succes et en echec.
+**48 tests** d'acceptation. La CI GitHub execute les memes sur Python 3.12, puis rejoue la demo en succes et en echec.
 
 ## Essayer en 10 secondes
 
 ```bash
-python -m nexus.demo "resume le sprint"                       # le petit modele suffit, cout 0
+python -m nexus.demo "resume le sprint"                        # le petit modele suffit, cout 0
 python -m nexus.demo "probleme dur" --local-confidence 0.2    # escalade payante tracee
-python -m nexus.demo "panne locale" --local-unavailable        # bascule sur le niveau suivant
+python -m nexus.demo "panne locale" --local-unavailable       # bascule sur le niveau suivant
 python -m nexus.demo "impossible" \
-  --local-confidence 0.1 --secondary-confidence 0.2            # aucun niveau ne suffit: FAIL propre
+  --local-confidence 0.1 --secondary-confidence 0.2           # aucun niveau ne suffit: FAIL propre
 ```
 
 La sortie donne le verdict, le cout reel, le cout evite par le cache, la trace d'escalade, la validite de la chaine du journal et les evenements publies. Le dernier scenario sort en code 1 et laisse la mission en `abandoned`, sans boucle.
@@ -44,7 +44,7 @@ La sortie donne le verdict, le cout reel, le cout evite par le cache, la trace d
 uvicorn nexus.api.app:app --reload
 ```
 
-`POST /mission` accepte une mission et la fait passer **par la cascade**, pas par un bouchon. `GET /mission/{id}` rend l'etat, `GET /mission/{id}/report` le rapport complet avec la trace d'escalade et le cout, `GET /policy` la politique de routage en vigueur en lecture seule, `GET /health` l'etat du service et l'integrite du journal.
+`POST /mission` accepte une mission et la fait passer **par la cascade**, pas par un bouchon. `GET /mission/{id}` rend l'etat, `GET /mission/{id}/report` le rapport complet avec la trace d'escalade et le cout, `GET /policy` la politique de routage en vigueur en lecture seule, `GET /health` l'etat du service, l'integrite du journal, le backend courant (`memory`) et si la reprise apres crash est reellement possible.
 
 ## Politique de routage
 
