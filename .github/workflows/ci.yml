@@ -21,10 +21,13 @@ jobs:
           POSTGRES_DB: nexus_ciel
           POSTGRES_USER: nexus
           POSTGRES_PASSWORD: nexus
-        ports: [5432:5432]
+        ports:
+          - "5432:5432"
         options: >-
           --health-cmd "pg_isready -U nexus -d nexus_ciel"
-          --health-interval 5s --health-timeout 5s --health-retries 20
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     env:
       NEXUS_DATABASE_URL: postgresql://nexus:nexus@localhost:5432/nexus_ciel
     steps:
@@ -35,6 +38,8 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: pip install -e '.[test]'
+      - name: Compile Python sources
+        run: python -m compileall -q nexus tests
       - name: Apply PostgreSQL migrations
         run: alembic upgrade head
       - name: Acceptance tests
