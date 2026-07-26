@@ -4,9 +4,9 @@ Nexus Ciel est un systeme d'orchestration et d'apprentissage **interne d'abord**
 
 ## Statut actuel
 
-**Phase 1 close sur CI verte (`7d86b58`). Phase 2 ouverte.** Le Router respecte la cascade officielle, charge sa politique versionnee en lecture seule et trace chaque escalade. La Phase 0 reste incomplete sur la persistance: tout l'etat vit en memoire de processus tant qu'aucun store durable n'est configure.
+**Phase 1 close et durcie (`12e1587`). Phase 2 ouverte, persistance d'abord.** Le Router respecte la cascade officielle, charge sa politique versionnee en lecture seule, contient les pannes de fournisseurs, trace chaque escalade et ne facture que ce qui est reellement depense. Le journal de mission detecte toute alteration de contenu. La Phase 0 reste incomplete sur la persistance: tout l'etat vit en memoire de processus tant qu'aucun store durable n'est configure.
 
-Voir [REPRISE.md](REPRISE.md) pour l'etat detaille, la checklist cochable, la dette ouverte et la roadmap.
+Voir [REPRISE.md](REPRISE.md) pour l'etat detaille, la checklist cochable, les quatre defauts trouves en execution, la dette ouverte et la roadmap.
 
 ## Principes non negociables
 
@@ -24,37 +24,39 @@ pip install -e '.[test]'
 pytest -q
 ```
 
-La CI GitHub execute les memes tests sur Python 3.12.
+46 tests d'acceptation Phase 1 et regressions. La CI GitHub execute les tests sur Python 3.12, puis rejoue les demos de succes et d'echec.
 
 ## Essayer en 10 secondes
 
 ```bash
-python -m nexus.demo "resume le sprint"          # le petit modele suffit, cout 0
-python -m nexus.demo "probleme dur" --local-confidence 0.2   # escalade payante tracee
-python -m nexus.demo "panne locale" --local-unavailable       # bascule sur le niveau suivant
+python -m nexus.demo "resume le sprint"
+python -m nexus.demo "probleme dur" --local-confidence 0.2
+python -m nexus.demo "panne locale" --local-unavailable
+python -m nexus.demo "impossible" --local-confidence 0.1 --secondary-confidence 0.2
 ```
 
-La sortie donne le verdict, le cout reel, la trace d'escalade, la validite de la chaine du journal et les evenements publies.
+La sortie donne le verdict, le cout reel, le cout evite par le cache, la trace d'escalade, la validite du journal et les evenements publies. Le dernier scenario sort en code 1 et laisse la mission en `abandoned`.
 
-## Politique de routage
+## API
 
-La cascade et le seuil de confiance vivent dans [`policies/routing_policy_v1.json`](policies/routing_policy_v1.json). C'est de la **donnee versionnee**, propriete logique de l'Evolution Engine. Le Router la lit via `nexus.router.load_policy`, refuse toute politique qui ne serait pas `read_only`, et des tests verifient que le fichier reste identique octet pour octet apres un routage.
+```bash
+uvicorn nexus.api.app:app --reload
+```
 
-Pour pointer une autre politique: `NEXUS_ROUTING_POLICY=/chemin/policy.json`.
+`POST /mission` passe par la cascade et le store configure. `GET /mission/{id}` rend l'etat, `GET /mission/{id}/report` le rapport, `GET /policy` la politique en lecture seule, `GET /health` l'etat et l'integrite du journal.
 
-## Persistance durable (fondations Phase 2)
+## Persistance durable
 
-Par defaut, l'API conserve encore un runtime en memoire de processus. Pour activer une reprise durable sans toucher `core/`, configurez l'un des stores suivants:
+Par defaut, l'API conserve encore un runtime en memoire. Configurez `NEXUS_RUNTIME_SNAPSHOT=/chemin/runtime.json` pour le store fichier deterministe, ou `NEXUS_DATABASE_URL=postgresql://nexus:nexus@db:5432/nexus_ciel` pour PostgreSQL. Le runtime persistant recharge etats, rapports, journal et capacites sans toucher a `core/`.
 
-- `NEXUS_RUNTIME_SNAPSHOT=/chemin/runtime.json` pour le store deterministe sur fichier, utile en test d'acceptation.
-- `NEXUS_DATABASE_URL=postgresql://nexus:nexus@db:5432/nexus_ciel` pour le store PostgreSQL.
-
-Le store durable recharge l'etat, les rapports, le journal et le registre de capacites au demarrage, puis re-sauvegarde chaque mutation. Les tests de Phase 2 prouvent deja la reprise apres restart via le store fichier; le chemin PostgreSQL/Alembic et `docker-compose.yml` preparent la fermeture complete du chantier.
-
-## Lancer avec Docker Compose
+## Docker Compose
 
 ```bash
 docker compose up --build
 ```
 
-Le service API applique `alembic upgrade head` au demarrage, puis expose FastAPI sur <http://localhost:8000> avec PostgreSQL persistant dans le volume `postgres_data`.
+Compose demarre PostgreSQL, applique `alembic upgrade head`, puis sert l'API. La preuve PostgreSQL reelle et la restauration via volume restent necessaires avant de cocher completement la persistance de Phase 0.
+
+## Politique et journal
+
+La politique vit dans [`policies/routing_policy_v1.json`](policies/routing_policy_v1.json), propriete logique de l'Evolution Engine, et le Router ne peut pas l'ecrire. Chaque entree du journal est signee sur son contenu complet et chainee a la precedente; `verify_chain()` detecte les modifications de payload, acteur ou type.

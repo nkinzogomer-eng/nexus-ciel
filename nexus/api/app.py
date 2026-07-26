@@ -1,9 +1,17 @@
 from fastapi import FastAPI, HTTPException, status
+
+from nexus.core import NexusRuntime
 from nexus.persistence import build_runtime
+from nexus.providers import LocalProvider, SecondaryProvider
+from nexus.router import AdaptiveRouter
 from nexus.schemas import Mission
 
 app = FastAPI(title="Nexus Ciel", version="0.1.0")
-runtime = build_runtime()
+
+# Keep Phase 1 routing on every public entry point, while allowing Phase 2 to
+# swap only the persistence layer through its factory.
+router = AdaptiveRouter([LocalProvider(), SecondaryProvider()])
+runtime = build_runtime(router=router)
 
 @app.post("/mission", status_code=status.HTTP_202_ACCEPTED)
 async def create_mission(mission: Mission) -> dict[str, str]:
@@ -32,6 +40,23 @@ async def get_report(mission_id: str):
 async def capabilities():
     return [cap.model_dump(mode="json") for cap in runtime.registry.list()]
 
+@app.get("/policy")
+async def policy():
+    return {
+        "source": router.policy.source_path,
+        "version": router.policy.version,
+        "schema_version": router.policy.schema_version,
+        "confidence_threshold": router.policy.confidence_threshold,
+        "stages": list(router.policy.stages),
+        "owner": router.policy.owner,
+        "router_access": router.policy.router_access,
+    }
+
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.1.0"}
+    return {
+        "status": "ok",
+        "version": "0.1.0",
+        "routed": runtime.router is not None,
+        "journal_chain_valid": runtime.journal.verify_chain(),
+    }
