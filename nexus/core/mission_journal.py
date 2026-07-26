@@ -12,7 +12,10 @@ class JournalEntry:
         self.timestamp = datetime.now(timezone.utc).isoformat()
 
     def as_dict(self) -> dict[str, Any]:
-        return self.__dict__.copy()
+        """JSON-serialisable snapshot of the entry (UUID rendered as text)."""
+        data = self.__dict__.copy()
+        data["mission_id"] = str(self.mission_id)
+        return data
 
 class MissionJournal:
     def __init__(self) -> None:

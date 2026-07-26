@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Protocol
 import hashlib
 
@@ -9,7 +9,13 @@ class CompletionRequest:
     mission_id: str | None = None
     critical: bool = False
     def cache_key(self) -> str:
-        return hashlib.sha256(self.prompt.encode()).hexdigest()
+        """Cache identity of the request.
+
+        The ``critical`` flag is part of the key: a critical mission must
+        never silently reuse an answer produced under relaxed conditions.
+        """
+        material = f"v1|{int(self.critical)}|{self.prompt}"
+        return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 @dataclass(frozen=True)
 class ProviderCaps:
