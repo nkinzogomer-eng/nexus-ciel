@@ -4,7 +4,7 @@ Nexus Ciel est un systeme d'orchestration et d'apprentissage **interne d'abord**
 
 ## Statut actuel
 
-**Phase 1 close et durcie (`12e1587`). Phase 2 ouverte, persistance d'abord.** Le Router respecte la cascade officielle, charge sa politique versionnee en lecture seule, contient les pannes de fournisseurs, trace chaque escalade et ne facture que ce qui est reellement depense. Le journal de mission detecte toute alteration de contenu. La Phase 0 reste incomplete sur la persistance: tout l'etat vit en memoire de processus.
+**Phase 1 close et durcie (`12e1587`). Phase 2 ouverte, persistance d'abord.** Le Router respecte la cascade officielle, charge sa politique versionnee en lecture seule, contient les pannes de fournisseurs, trace chaque escalade et ne facture que ce qui est reellement depense. Le journal de mission detecte toute alteration de contenu. La Phase 0 reste incomplete sur la persistance: l'API peut maintenant brancher un checkpoint SQLite via `NEXUS_STATE_DB`, mais le contrat cible reste Postgres/Alembic.
 
 Voir [REPRISE.md](REPRISE.md) pour l'etat detaille, la checklist cochable, les quatre defauts trouves en execution, la dette ouverte et la roadmap.
 
@@ -24,7 +24,7 @@ pip install -e '.[test]'
 pytest -q
 ```
 
-46 tests d'acceptation. La CI GitHub execute les memes sur Python 3.12, puis rejoue la demo en succes et en echec.
+52 tests d'acceptation. La CI GitHub execute les memes sur Python 3.12, puis rejoue la demo en succes et en echec.
 
 ## Essayer en 10 secondes
 
@@ -45,6 +45,8 @@ uvicorn nexus.api.app:app --reload
 ```
 
 `POST /mission` accepte une mission et la fait passer **par la cascade**, pas par un bouchon. `GET /mission/{id}` rend l'etat, `GET /mission/{id}/report` le rapport complet avec la trace d'escalade et le cout, `GET /policy` la politique de routage en vigueur en lecture seule, `GET /health` l'etat du service et l'integrite du journal.
+
+Pour activer les checkpoints de reprise pendant la Phase 2: `NEXUS_STATE_DB=.nexus/runtime.sqlite3 uvicorn nexus.api.app:app --reload`.
 
 ## Politique de routage
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import UUID, uuid4
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 class Mission(BaseModel):
     schema_version: int = 1
@@ -29,7 +29,12 @@ class MissionState(BaseModel):
     objective: str
     status: Literal["planned", "in_progress", "validated", "abandoned"] = "planned"
     iterations: int = 0
-    resumable_after_crash: bool = True
+    checkpointed_at: datetime | None = None
+
+    @computed_field
+    @property
+    def resumable_after_crash(self) -> bool:
+        return self.checkpointed_at is not None
 
 class Report(BaseModel):
     schema_version: int = 1

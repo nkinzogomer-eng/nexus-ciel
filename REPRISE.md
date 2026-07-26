@@ -6,9 +6,10 @@
 
 - Objectif: Nexus Ciel **interne d'abord**, auto-heberge sur un hote maitrise.
 - Vision: Manas gele, capacites/politiques probatoires et reversibles, apprentissage hors mission, cascade economique, validation en couches.
-- Dernier commit: `12e1587` (`fix: close four defects the green Phase 1 suite could not see`).
-- Phase active: **Phase 1 close et durcie. Phase 2 ouverte, persistance d'abord.**
-- Suite d'acceptation: **46 tests** (33 heritees, 13 ajoutees en regression).
+- Dernier commit observe sur `main`: `ca216b8` (`docs: record the four execution-found defects and set the Phase 2 order`).
+- CI observee pour ce commit: **verte** (workflow `CI`, push sur `main`, checks du commit concluants).
+- Phase active: **Phase 2 ouverte. Premier verrou ferme: `resumable_after_crash` n'est plus un mensonge litteral. Postgres/Alembic et Compose restent ouverts.**
+- Suite d'acceptation: **52 tests** (46 heritees, 6 ajoutees pour les checkpoints et la reprise).
 
 ## Verite sur l'historique CI
 
@@ -16,6 +17,7 @@
 - Run `#7` (`9f9f545`): **rouge**. `nexus/router/__init__.py` n'exportait pas `RoutingPolicy`, donc ImportError a la collecte: aucun test de Phase 1 ne s'est jamais execute.
 - Run `#8` (`7d86b58`): **vert**. Correctif d'export et fermeture des ecarts de conformite.
 - Correctif de fond dans `12e1587`: `cancel-in-progress` est desormais limite aux pull requests. Sur `main`, chaque commit va jusqu'a une conclusion. La cause racine de la confusion initiale est fermee, pas seulement son symptome.
+- Commit `ca216b8`: **vert**. Pure mise a jour documentaire qui fixe l'ordre de la Phase 2 apres execution reelle du systeme.
 
 Lecon retenue: un run annule n'est pas un run en cours. Verifier la conclusion, pas l'existence.
 
@@ -39,7 +41,7 @@ Lecon retenue: un run annule n'est pas un run en cours. Verifier la conclusion, 
 - [ ] Persistance PostgreSQL/Alembic et reprise apres crash reelle.
 - [ ] Docker Compose reproductible.
 
-Tout l'etat vit encore en memoire de processus. `MissionState.resumable_after_crash` vaut `True` alors que rien ne survit a un redemarrage: c'est le mensonge le plus couteux du prototype et il doit tomber en premier.
+Tout l'etat vit encore en memoire de processus sur `main`. La branche de Phase 2 pose un contrat de checkpoint deterministe en SQLite pour prouver la forme de la reprise sans toucher `core/`; la cible reste Postgres/Alembic.
 
 ## Phase 1: routage economique
 
@@ -79,15 +81,16 @@ python -m nexus.demo "resume le sprint"
 python -m nexus.demo "probleme dur" --local-confidence 0.3
 python -m nexus.demo "panne locale" --local-unavailable
 python -m nexus.demo "impossible" --local-confidence 0.1 --secondary-confidence 0.2
+NEXUS_STATE_DB=.nexus/runtime.sqlite3 uvicorn nexus.api.app:app --reload
 ```
 
-Une mission traverse reellement le State Graph, le journal chaine, l'Event Bus et la cascade economique, puis rend un rapport avec verdict, cout reel, cout evite et trace d'escalade.
-
-Quatre scenarios verifies de bout en bout: le local suffit (cout 0), le local echoue et on escalade en payant, le local est hors ligne et on bascule, aucun niveau ne suffit et la mission finit `FAIL` / `abandoned` sans boucle. Le quatrieme n'etait atteignable que depuis un test: `--secondary-confidence` le rend accessible en ligne de commande, et la CI l'execute.
+Une mission traverse reellement le State Graph, le journal chaine, l'Event Bus et la cascade economique, puis rend un rapport avec verdict, cout reel, cout evite et trace d'escalade. Si `NEXUS_STATE_DB` est fourni, l'etat canonique est checkpointé dans SQLite et une mission `in_progress` peut etre rejouee apres redemarrage depuis son dernier point durable.
 
 ## Dette ouverte a traiter
 
 - PR `#1` (`robin/phase1-routing-policy-telemetry`) est **obsolete**: elle visait les memes ecarts depuis `f78f38d` et est depassee deux fois par `main`. A fermer, pas a rebaser.
+- Le contrat de reprise actuel **redemarre** l'execution depuis le dernier checkpoint; c'est acceptable tant qu'une mission n'a pas d'effets externes, insuffisant des qu'une phase future declenche des outils ou des ecritures.
+- Le backend de checkpoint est SQLite pour rester deterministe en test. La cible demandee reste Postgres + Alembic + Compose; rien n'est coche a ce sujet tant qu'une migration reelle et une stack reproductible n'existent pas.
 - Le zip historique `nexus-ciel-complete.zip` et les deux PDF de specification restent a la racine. Une seule arborescence canonique: les deplacer dans `docs/` ou les retirer.
 - `tests/test_phase0_acceptance.py` et `test_regressions_phase1.py` partagent le `runtime` global de `nexus.api.app`. Tolerable aujourd'hui, a isoler par fixture des que la persistance arrive.
 - Le cache du Router est global au processus et sans expiration: une reponse memorisee reste valide indefiniment. A borner en meme temps que le cache Redis.
@@ -101,7 +104,13 @@ Ordre non negociable: **la persistance avant la memoire**. Construire un Memory 
 - [ ] Schema PostgreSQL et migrations Alembic pour State Graph, Mission Journal, Capability Registry, telemetrie de routage.
 - [ ] Docker Compose reproductible (Postgres + API), une commande, sans etape manuelle.
 - [ ] Test de reprise apres crash reel: tuer le processus en cours de mission, redemarrer, retrouver l'etat et une chaine de journal verifiee.
-- [ ] Faire de `resumable_after_crash` une propriete calculee, jamais un litteral `True`.
+- [x] Faire de `resumable_after_crash` une propriete calculee, jamais un litteral `True`.
+
+### Ce que la branche de checkpoint prouve deja
+
+- [x] Un runtime sans store ne pretend plus etre reprenable: `MissionState.resumable_after_crash` est derive de `checkpointed_at`, pas force a `True`.
+- [x] Les sources canoniques (mission, etat, journal, capabilities, rapports) se rechargent depuis un store relationnel sans ecrire dans `core/`.
+- [x] Une mission arretee alors qu'elle est `in_progress` peut etre reprise apres redemarrage **en rejouant** l'execution depuis le dernier checkpoint durable, avec une chaine de journal toujours verifiee.
 
 ### 2b. Memory Core et SkillCards
 

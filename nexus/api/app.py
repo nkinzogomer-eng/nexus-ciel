@@ -1,6 +1,8 @@
+import os
+
 from fastapi import FastAPI, HTTPException, status
 
-from nexus.core import NexusRuntime
+from nexus.persistence import CheckpointingRuntime, SqliteRuntimeStore
 from nexus.providers import LocalProvider, SecondaryProvider
 from nexus.router import AdaptiveRouter
 from nexus.schemas import Mission
@@ -11,7 +13,9 @@ app = FastAPI(title="Nexus Ciel", version="0.1.0")
 # returned the Phase 0 stub verdict while the demo and the tests exercised the
 # cascade: the one entry point a human actually calls was the only one lying.
 router = AdaptiveRouter([LocalProvider(), SecondaryProvider()])
-runtime = NexusRuntime(router=router)
+store_path = os.environ.get("NEXUS_STATE_DB")
+store = SqliteRuntimeStore(store_path) if store_path else None
+runtime = CheckpointingRuntime.load(store, router=router) if store else CheckpointingRuntime(router=router)
 
 
 @app.post("/mission", status_code=status.HTTP_202_ACCEPTED)
@@ -65,5 +69,6 @@ async def health():
         "status": "ok",
         "version": "0.1.0",
         "routed": runtime.router is not None,
+        "checkpoint_store": str(store.path) if store else None,
         "journal_chain_valid": runtime.journal.verify_chain(),
     }
