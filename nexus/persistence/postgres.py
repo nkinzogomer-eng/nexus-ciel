@@ -15,7 +15,8 @@ class PostgresSnapshotStore:
             import psycopg
         except ModuleNotFoundError as exc:
             raise RuntimeError("psycopg is required for PostgreSQL persistence") from exc
-        return psycopg.connect(self.dsn)
+        dsn = self.dsn.replace("postgresql+psycopg://", "postgresql://", 1)
+        return psycopg.connect(dsn)
 
     def load(self) -> dict[str, Any]:
         with self._connect() as conn, conn.cursor() as cur:
@@ -43,20 +44,20 @@ class PostgresSnapshotStore:
                 data = report.model_dump(mode="json")
                 cur.execute(
                     """INSERT INTO mission_reports (mission_id, verdict, objective, summary, iterations, cost_usd, duration_s, actions, validation, learned, guard_events, generated_at)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s::json,%s::json,%s::json,%s::json,%s)
                     ON CONFLICT (mission_id) DO UPDATE SET verdict=EXCLUDED.verdict,summary=EXCLUDED.summary,iterations=EXCLUDED.iterations,cost_usd=EXCLUDED.cost_usd,duration_s=EXCLUDED.duration_s,actions=EXCLUDED.actions,validation=EXCLUDED.validation,learned=EXCLUDED.learned,guard_events=EXCLUDED.guard_events,generated_at=EXCLUDED.generated_at""",
                     (mission_id, data["verdict"], data["objective"], data["summary"], data["iterations"], data["cost_usd"], data["duration_s"], json.dumps(data["actions"]), json.dumps(data["validation"]), json.dumps(data["learned"]), json.dumps(data["guard_events"]), data["generated_at"]),
                 )
             for entry in runtime.journal.entries():
                 cur.execute(
                     """INSERT INTO mission_journal (seq, mission_id, event_type, actor, payload, signature, precedent_hash, timestamp)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (seq) DO NOTHING""",
+                    VALUES (%s,%s,%s,%s,%s::json,%s,%s,%s) ON CONFLICT (seq) DO NOTHING""",
                     (entry.seq, str(entry.mission_id), entry.type, entry.actor, json.dumps(entry.payload), entry.signature, entry.precedent_hash, entry.timestamp),
                 )
             for capability in runtime.registry.list():
                 data = capability.model_dump(mode="json")
                 cur.execute(
-                    """INSERT INTO capabilities (id,name,description,type,status,version,stats) VALUES (%s,%s,%s,%s,%s,%s,%s)
+                    """INSERT INTO capabilities (id,name,description,type,status,version,stats) VALUES (%s,%s,%s,%s,%s,%s,%s::json)
                     ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.description,status=EXCLUDED.status,version=EXCLUDED.version,stats=EXCLUDED.stats""",
                     (str(capability.id), data["name"], data["description"], data["type"], data["status"], data["version"], json.dumps(data["stats"])),
                 )
