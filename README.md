@@ -1,57 +1,19 @@
 # Nexus Ciel
 
-Nexus Ciel est un systeme d'orchestration et d'apprentissage **interne d'abord**: il recoit des missions, choisit une strategie economique, execute sous controle, valide les resultats et transforme l'experience en savoir-faire reutilisable.
-
 ## Statut actuel
 
-**Phase 1 close et durcie (`12e1587`). Phase 2 ouverte, persistance d'abord.** Le Router respecte la cascade officielle, charge sa politique versionnee en lecture seule, contient les pannes de fournisseurs, trace chaque escalade et ne facture que ce qui est reellement depense. Le journal de mission detecte toute alteration de contenu. La Phase 0 reste incomplete sur la persistance: tout l'etat vit en memoire de processus.
+**Phase 1 close. Phase 2 en cours: persistance PostgreSQL branchée, gate kill/restart encore à valider sur main.** PR #3 a été fusionnée en squash dans `main`; PR #8 a été fermée comme doublon. La CI de validation des PR était verte avec seulement un warning Node.js 20 externe.
 
-Voir [REPRISE.md](REPRISE.md) pour l'etat detaille, la checklist cochable, les quatre defauts trouves en execution, la dette ouverte et la roadmap.
+Voir [REPRISE.md](REPRISE.md) pour la source de vérité.
 
-## Principes non negociables
+## Preuve obligatoire Phase 2
 
-- Manas/Core reste gele et modifiable par l'humain uniquement.
-- Les sources canoniques restent uniques: State Graph, Mission Journal, Capability Registry.
-- Les capacites et politiques evolutives sont versionnees, probatoires et reversibles.
-- La validation deterministe precede le jugement LLM.
-- Les budgets, retries, sandbox et kill-switch sont obligatoires avant autonomie accrue.
-- L'apprentissage se fait en tache de fond, jamais au milieu d'une mission.
+La gate démarre un sous-processus Nexus, accepte une mission, le tue par `SIGKILL`, recrée un runtime avec la même base PostgreSQL, puis exige la récupération de l'état, du rapport et de la chaîne du journal. Tant que cette gate et la restauration Compose ne sont pas vertes sur `main`, la persistance Phase 0 et la Phase 2 restent ouvertes.
 
-## Developpement local
+## Route actuelle
 
-```bash
-pip install -e '.[test]'
-pytest -q
-```
+`NEXUS_DATABASE_URL` active `build_runtime()` et le `PostgresSnapshotStore`; sans cette variable, Nexus reste explicitement en mémoire. Le store normalise `postgresql://` pour SQLAlchemy et `postgresql+psycopg://` pour psycopg.
 
-46 tests d'acceptation. La CI GitHub execute les memes sur Python 3.12, puis rejoue la demo en succes et en echec.
+## Prochaine étape
 
-## Essayer en 10 secondes
-
-```bash
-python -m nexus.demo "resume le sprint"                       # le petit modele suffit, cout 0
-python -m nexus.demo "probleme dur" --local-confidence 0.2    # escalade payante tracee
-python -m nexus.demo "panne locale" --local-unavailable        # bascule sur le niveau suivant
-python -m nexus.demo "impossible" \
-  --local-confidence 0.1 --secondary-confidence 0.2            # aucun niveau ne suffit: FAIL propre
-```
-
-La sortie donne le verdict, le cout reel, le cout evite par le cache, la trace d'escalade, la validite de la chaine du journal et les evenements publies. Le dernier scenario sort en code 1 et laisse la mission en `abandoned`, sans boucle.
-
-## API
-
-```bash
-uvicorn nexus.api.app:app --reload
-```
-
-`POST /mission` accepte une mission et la fait passer **par la cascade**, pas par un bouchon. `GET /mission/{id}` rend l'etat, `GET /mission/{id}/report` le rapport complet avec la trace d'escalade et le cout, `GET /policy` la politique de routage en vigueur en lecture seule, `GET /health` l'etat du service et l'integrite du journal.
-
-## Politique de routage
-
-La cascade et le seuil de confiance vivent dans [`policies/routing_policy_v1.json`](policies/routing_policy_v1.json). C'est de la **donnee versionnee**, propriete logique de l'Evolution Engine. Le Router la lit via `nexus.router.load_policy`, refuse toute politique qui ne serait pas `read_only`, et des tests verifient que le fichier reste identique octet pour octet apres un routage.
-
-Pour pointer une autre politique: `NEXUS_ROUTING_POLICY=/chemin/policy.json`.
-
-## Journal de mission
-
-Chaque entree est signee sur son contenu complet et chainee a la precedente. `verify_chain()` recalcule les signatures: modifier un payload, un acteur ou un type en place invalide la chaine, et `tampered_entries()` nomme les entrees concernees.
+Valider la gate sur `main`, couvrir les missions interrompues, tester le volume Docker Compose, puis seulement construire Memory Core et SkillCards.
