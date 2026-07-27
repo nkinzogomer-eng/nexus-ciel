@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import UUID, uuid4
+
 from pydantic import BaseModel, Field
+
 
 class Mission(BaseModel):
     schema_version: int = 1
@@ -14,6 +17,7 @@ class Mission(BaseModel):
     created_by: Literal["human", "nexus"] = "human"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+
 class Event(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     type: str
@@ -24,12 +28,14 @@ class Event(BaseModel):
     causation_id: UUID | None = None
     correlation_id: UUID = Field(default_factory=uuid4)
 
+
 class MissionState(BaseModel):
     mission_id: UUID
     objective: str
     status: Literal["planned", "in_progress", "validated", "abandoned"] = "planned"
     iterations: int = 0
-    resumable_after_crash: bool = True
+    resumable_after_crash: bool = False
+
 
 class Report(BaseModel):
     schema_version: int = 1
@@ -45,6 +51,7 @@ class Report(BaseModel):
     learned: dict[str, Any] = Field(default_factory=lambda: {"skill_cards": [], "capabilities_touched": []})
     guard_events: list[dict[str, Any]] = Field(default_factory=list)
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 
 class Capability(BaseModel):
     id: UUID = Field(default_factory=uuid4)

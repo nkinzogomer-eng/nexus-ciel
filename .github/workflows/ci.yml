@@ -1,27 +1,35 @@
 name: CI
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
-
-# Cancelling in-flight runs is fine on a pull request branch, where only the
-# latest push matters. On main it destroys the evidence: run #6 was killed 11
-# seconds in by the next commit, and its phase was then treated as unproven.
-# Every commit landing on main must get to a conclusion of its own.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
 jobs:
   tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: nexus_ciel
+          POSTGRES_USER: nexus
+          POSTGRES_PASSWORD: nexus
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U nexus -d nexus_ciel"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      NEXUS_DATABASE_URL: postgresql://nexus:nexus@localhost:5432/nexus_ciel
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,11 +38,19 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: pip install -e '.[test]'
+      - name: Compile Python sources
+        run: python -m compileall -q nexus tests
+      - name: Show runtime dependency versions
+        run: python -c "import fastapi,pydantic,sqlalchemy,psycopg; print(fastapi.__version__, pydantic.__version__, sqlalchemy.__version__, psycopg.__version__)"
+      - name: Apply PostgreSQL migrations
+        run: alembic upgrade head
       - name: Acceptance tests
-        run: pytest -q
+        run: pytest -vv -x
       - name: End-to-end smoke run
         run: python -m nexus.demo "ci smoke mission"
-      - name: Unroutable path still fails cleanly
+      - name: Unroutable path must fail cleanly
         run: |
-          python -m nexus.demo "ci unroutable mission" \
-            --local-confidence 0.1 --secondary-confidence 0.2 && exit 1 || exit 0
+          if python -m nexus.demo "ci unroutable mission" --local-confidence 0.1 --secondary-confidence 0.2; then
+            echo "unroutable mission unexpectedly passed"
+            exit 1
+          fi

@@ -7,7 +7,7 @@
 - Objectif: Nexus Ciel **interne d'abord**, auto-heberge sur un hote maitrise.
 - Vision: Manas gele, capacites/politiques probatoires et reversibles, apprentissage hors mission, cascade economique, validation en couches.
 - Dernier commit: `12e1587` (`fix: close four defects the green Phase 1 suite could not see`).
-- Phase active: **Phase 1 close et durcie. Phase 2 ouverte, persistance d'abord.**
+- Phase active: **Phase 1 close et durcie. Phase 2 ouverte, persistance d'abord, scaffold a fiabiliser avant preuve.**
 - Suite d'acceptation: **46 tests** (33 heritees, 13 ajoutees en regression).
 
 ## Verite sur l'historique CI
@@ -97,6 +97,8 @@ Quatre scenarios verifies de bout en bout: le local suffit (cout 0), le local ec
 Ordre non negociable: **la persistance avant la memoire**. Construire un Memory Core sur un runtime qui perd tout au redemarrage revient a le construire deux fois.
 
 ### 2a. Fermer la persistance de Phase 0
+
+Le scaffold de persistance existe desormais (snapshot store fichier/PostgreSQL, migration Alembic, compose), mais aucune case 2a ne sera cochee avant une PR verte et une preuve de reprise apres crash sur une execution reelle. Le blocage CI traite ici est la normalisation des DSN PostgreSQL: Alembic/SQLAlchemy doit accepter `postgresql://...` pour ouvrir `postgresql+psycopg://...`, sans casser `psycopg.connect()` cote runtime.
 
 - [ ] Schema PostgreSQL et migrations Alembic pour State Graph, Mission Journal, Capability Registry, telemetrie de routage.
 - [ ] Docker Compose reproductible (Postgres + API), une commande, sans etape manuelle.
