@@ -8,44 +8,33 @@
 - Vision: Manas gelé, capacités et politiques probatoires et réversibles, apprentissage hors mission, cascade économique, validation en couches.
 - Commit de référence main: `ca216b8`.
 - Phase active: **Phase 2 ouverte, persistance d'abord.**
-- PR #6: **scaffold Phase 2 validé par CI** sur `9aecfab`.
-- CI PR #6: run `30214062985`, job `89825040897`, conclusion **success**, 50 tests, 19 secondes.
-- Seul avertissement: dépréciation Node.js 20 des actions GitHub, sans impact sur Nexus Ciel.
+- PR #6: scaffold vert, puis gate PostgreSQL kill/restart ajoutée.
+- Dernier commit: `9f62416` (`fix: normalize SQLAlchemy PostgreSQL DSN for psycopg`).
+- Dernière CI: run `30216128010`, job `89830540924`, **failure** le 27 juillet, après 28 secondes.
 
-## Phase 0 et Phase 1
+## État des preuves
 
-- [x] Contrats Pydantic de base.
-- [x] Event Bus in-process.
-- [x] State Graph minimal.
-- [x] Mission Journal chaîné et détection de falsification.
-- [x] Capability Registry probatoire.
-- [x] API branchée sur la cascade.
-- [x] Router: politique read-only, cascade officielle, cache, télémétrie, escalade, erreurs bornées.
-- [ ] Persistance réellement branchée au runtime.
-- [ ] Reprise réelle après crash.
+- [x] Scaffold Phase 2: manifeste, baseline Alembic, Dockerfile, Compose, 50 tests, CI verte.
+- [x] Adaptateur PostgreSQL hors `nexus/core` et branchement de `build_runtime()`.
+- [x] Gate réelle ajoutée: sous-processus tué par `SIGKILL`, nouveau runtime, vérification état/rapport/journal.
+- [ ] Gate kill/restart verte.
+- [ ] Persistance Phase 0 validée.
 - [ ] Docker Compose vérifié avec restauration d'un état existant.
 
-## Ce que PR #6 prouve
+## Ce que le dernier échec prouve
 
-- Manifeste versionné couvrant `mission_states`, `mission_reports`, `mission_journal`, `capabilities` et `routing_telemetry`.
-- Baseline Alembic et configuration PostgreSQL.
-- Docker Compose avec PostgreSQL, volume persistant, migration avant démarrage API.
-- Dockerfile reproductible.
-- 50 tests CI verts pour verrouiller le scaffold et éviter de repartir de zéro.
+La CI historique du scaffold était verte, mais ne testait pas de persistance réelle. La nouvelle gate a donc correctement échoué après le câblage: il reste un défaut d'intégration à isoler dans le job, probablement dans la chaîne migration/connexion/écriture/lecture, mais aucune case ne doit être cochée sans un run vert.
 
-## Ce que PR #6 ne prouve pas
+Le runtime persistant cible maintenant les tables canoniques `mission_states`, `mission_reports`, `mission_journal` et `capabilities`. La télémétrie de routage n'est pas encore écrite dans PostgreSQL et reste ouverte.
 
-Le scaffold ne persiste encore aucun état de mission: le runtime reste en mémoire et `resumable_after_crash` reste un problème ouvert dans le core gelé. Ne pas cocher la persistance sur cette seule base.
+## Prochaines actions obligatoires
 
-## Prochain jalon obligatoire: runtime durable
-
-1. Ajouter un adaptateur persistant hors `nexus/core` pour State Graph, rapports, journal, capacités et télémétrie.
-2. Faire écrire chaque mutation dans PostgreSQL avec transaction et idempotence.
-3. Tester la reprise d'une mission terminée après recréation du runtime.
-4. Tuer un processus pendant une mission, redémarrer, retrouver l'état `in_progress` et vérifier la chaîne du journal.
-5. Définir une politique explicite pour les missions inachevées: reprise, abandon contrôlé ou reprise humaine.
-6. Vérifier `docker compose up --build` et la restauration via `postgres_data`.
-7. Seulement après ces preuves, fermer la persistance Phase 0 et commencer Memory Core.
+1. Extraire l'erreur exacte de la gate PostgreSQL, pas deviner.
+2. Corriger puis relancer la gate.
+3. Vérifier que le processus meurt après commit, qu'un nouveau runtime lit le même `mission_id`, que le rapport existe et que `journal.verify_chain()` reste vrai.
+4. Ajouter ensuite la mission interrompue `in_progress` et sa politique de reprise explicite.
+5. Vérifier Compose avec volume persistent.
+6. Seulement après: cocher la persistance Phase 0 et commencer Memory Core.
 
 ## Phase 2b: Memory Core et SkillCards
 
@@ -65,9 +54,10 @@ Le scaffold ne persiste encore aucun état de mission: le runtime reste en mémo
 
 - Budget de mission déclaré mais pas encore bloquant: Mission Guard Phase 3.
 - Providers encore simulés: gateway réel, timeouts, retries bornés, circuit breaker à construire.
-- Cache en mémoire sans expiration et télémétrie non persistante.
+- Télémétrie encore volatile et non persistante.
+- Cache en mémoire sans expiration.
 - Création de capacités prévue en Phase 5, avec oracle, second modèle, sandbox niveau 3, probation et 10 succès.
-- Zip historique et PDF de spécification encore à ranger dans une arborescence documentaire unique.
+- Zip historique et PDF de spécification encore à ranger.
 
 ## Règles de continuité
 
