@@ -14,10 +14,10 @@
 
 ## CI et preuves
 
-- Commit `078bbdd`: état exact des checks non récupérable pendant ce réveil via les outils disponibles (pages GitHub Actions/checks illisibles), mais `main` n'a reçu aucun nouveau commit depuis le Mon Jul 27.
+- Commit `078bbdd`: checks **verts**. Workflow `CI on: push`, job `tests`, **success** le Sun Jul 27 en 37 secondes, avec le seul warning externe Node.js 20 déjà observé.
 - PR #3: run `30220312697`, job `89841522174`, **success**, 48 secondes.
 - PR #8: run `30224468531`, job `89852314957`, **success**, 40 secondes.
-- Les deux runs ont seulement le warning externe Node.js 20, sans erreur Nexus.
+- Les runs observés n'ont pas d'erreur Nexus; seul le warning externe Node.js 20 persiste.
 - Preuve ajoutée sur cette branche: un snapshot relancé avec une mission `in_progress` la requalifie en `abandoned`, remplace tout rapport `PASS` éventuel par un `FAIL` honnête, et ajoute l'entrée de journal `mission_interrupted`.
 - La gate PostgreSQL kill/restart et la restauration Compose doivent encore conclure vertes sur `main` avant fermeture de la phase.
 
@@ -46,7 +46,7 @@
 
 ## Prochaines actions obligatoires
 
-1. Retrouver une preuve exploitable du run CI exact de `078bbdd` ou observer le prochain run `main` avec ses checks.
+1. Attendre la CI de la PR #9 puis vérifier `main` après fusion humaine.
 2. Faire passer la gate PostgreSQL kill/restart sur `main`.
 3. Vérifier Docker Compose avec volume persistant et restauration d'un état existant.
 4. Garder la politique de reprise en abandon contrôlé tant qu'aucune ré-exécution déterministe n'existe.
