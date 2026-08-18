@@ -8,7 +8,6 @@ controlled-abandon policy.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import signal
@@ -138,4 +137,3 @@ def test_postgres_sigkill_gate_recovers_and_abandons_mission() -> None:
         if writer.poll() is None:
             os.killpg(writer.pid, signal.SIGKILL)
             writer.wait(timeout=10)
-"
