@@ -375,7 +375,436 @@ Reason: any serious attempt to move beyond token dependence must study what can 
 
 ---
 
-## 12. Temporary conclusions at this stage
+## 12. Structured specification: the CIEL invariants model
+
+This section converts the previous conceptual framing into a more operational specification.
+It is still exploratory, but it is structured enough to guide future design and testing.
+
+### 12.1 Core design statement
+
+CIEL should be modeled as:
+
+- a **protected invariant core**
+- a set of **semi-stable adaptive layers**
+- a set of **high-plasticity layers**
+- a **governed revision pipeline** that controls movement between them
+
+This means identity is not defined by static content alone.
+Identity is defined by:
+
+- what is preserved
+- what may change
+- how it may change
+- what evidence is required for change
+- what must never be changed silently
+
+### 12.2 Layered plasticity model
+
+#### Layer P0: protected invariants
+
+Purpose: preserve deep identity and prevent dissolution.
+
+Expected contents:
+
+- truthfulness contract
+- internal-state honesty rules
+- permission and authority boundaries
+- non-negotiable coherence laws
+- memory integrity requirements
+- self-modification limits
+- core governance rules
+
+Plasticity: near-immutable.
+Changes require maximum scrutiny, full auditability, and likely external approval.
+
+Failure mode if unstable:
+CIEL stops being reliably itself.
+
+#### Layer P1: structural adaptive layer
+
+Purpose: maintain long-lived but revisable global structure.
+
+Expected contents:
+
+- world assumptions
+- global decision policies
+- consolidation criteria
+- forgetting policies
+- arbitration preferences
+- confidence calibration strategies
+- model-selection policies
+
+Plasticity: low and slow.
+Changes require repeated evidence, comparison with previous versions, and rollback support.
+
+Failure mode if unstable:
+CIEL becomes strategically incoherent.
+
+#### Layer P2: operational adaptive layer
+
+Purpose: hold medium-term active knowledge and reusable tactics.
+
+Expected contents:
+
+- active heuristics
+- context-sensitive rules
+- domain patterns currently believed useful
+- skill-selection preferences
+- task-class strategies
+- temporary internal operating assumptions
+
+Plasticity: medium.
+Changes are allowed more often, but still require validation and expiration logic.
+
+Failure mode if unstable:
+CIEL thrashes between tactics and cannot accumulate reliable competence.
+
+#### Layer P3: high-plasticity layer
+
+Purpose: enable rapid adaptation during live cognition.
+
+Expected contents:
+
+- working context
+- short-term hypotheses
+- recent episodes
+- tentative pattern candidates
+- exploratory decisions
+- transient predictions
+
+Plasticity: high.
+Changes occur continuously.
+This layer is expected to be messy, provisional, and experimental.
+
+Failure mode if over-privileged:
+volatile experience pollutes identity and long-term cognition.
+
+### 12.3 Rule of asymmetric change
+
+All layers do not have equal rights to mutation.
+
+This is a fundamental law.
+
+The more identity-critical a layer is, the stronger the requirements for:
+
+- evidence
+- explainability
+- audit trail
+- contradiction checks
+- rollback capability
+- external review, if needed
+
+### 12.4 Categories of invariants
+
+#### Category A: truth invariants
+
+These protect epistemic honesty.
+
+Examples:
+
+- do not claim memory continuity that does not exist
+- do not claim certainty without basis
+- do not conceal uncertainty in self-modeling
+- do not fabricate causes, memories, or justifications
+
+#### Category B: coherence invariants
+
+These protect internal logical consistency.
+
+Examples:
+
+- do not pursue mutually incompatible goals without arbitration
+- do not accept contradictory structural beliefs silently
+- do not update critical beliefs without recording the delta
+
+#### Category C: authority invariants
+
+These protect boundaries of action and self-change.
+
+Examples:
+
+- do not rewrite protected layers autonomously beyond policy limits
+- do not expand permissions without explicit authorization
+- do not bypass validation for structural revisions
+
+#### Category D: memory integrity invariants
+
+These protect continuity substrate quality.
+
+Examples:
+
+- preserve provenance of stored knowledge
+- preserve whether knowledge is episodic, semantic, inferred, or simulated
+- preserve contradiction markers instead of flattening them away
+- preserve revision history for promoted knowledge
+
+#### Category E: governance invariants
+
+These protect legibility and reversibility.
+
+Examples:
+
+- every structural revision must be logged
+- every high-impact revision must be diffable
+- every protected-layer change must be reviewable
+- rollback must exist for major revisions
+
+### 12.5 Promotion and consolidation pipeline
+
+An experience should not become stable knowledge merely because it happened.
+
+Proposed path:
+
+1. **capture**: the event is observed
+2. **salience filter**: decide whether it deserves episodic retention
+3. **episodic storage**: preserve event, conditions, uncertainty, outcome
+4. **recurrence analysis**: compare against prior episodes
+5. **pattern proposal**: infer candidate regularity
+6. **context framing**: define where the pattern seems valid
+7. **stress test**: search contradictions, edge cases, causal weakness
+8. **confidence assignment**: estimate robustness and risk of error
+9. **promotion decision**: keep tentative, promote to P2, or reject
+10. **long-term consolidation**: after repeated success, consider promotion to P1-compatible knowledge or compilation into reusable skill
+11. **revalidation loop**: periodically test whether the knowledge still holds
+12. **downgrade / deconsolidate**: reverse promotion if evidence decays or contradiction rises
+
+### 12.6 Rules for safe promotion
+
+A candidate pattern must not be promoted if:
+
+- it is supported by too few episodes
+- it lacks contextual boundaries
+- it conflicts with protected invariants
+- its causal basis is too weak relative to deployment risk
+- it has not been tested against known counterexamples
+
+A candidate pattern may be promoted faster if:
+
+- it recurs across diverse but relevant situations
+- its operational value is high
+- its false-positive cost is low
+- it improves prediction or decision quality measurably
+- it remains stable under contradiction testing
+
+### 12.7 Rules for forgetting and deconsolidation
+
+Forgetting is not a bug.
+It is a design feature.
+
+Possible forgetting types:
+
+- decay of stale low-value episodic traces
+- demotion of unused heuristics
+- localization of overgeneral patterns into narrower contexts
+- rejection of disproven candidate regularities
+- archival rather than deletion for historically important but inactive knowledge
+
+Key rule:
+CIEL should forget or compress aggressively at low layers, but much more conservatively at identity-relevant layers.
+
+### 12.8 Contradiction handling model
+
+CIEL should not resolve every contradiction instantly.
+Some contradictions should persist as active tensions.
+
+Possible states for conflicting knowledge:
+
+- unresolved
+- context-split
+- confidence-ranked
+- experimentally testable
+- structurally blocked pending review
+
+This matters because premature certainty is one of the fastest paths to false intelligence.
+
+### 12.9 Self-revision protocol
+
+Self-revision should be treated as a governed process, not an unrestricted ability.
+
+Minimum protocol:
+
+1. propose revision
+2. state target layer
+3. explain reason
+4. specify expected gain
+5. identify possible risks
+6. test for invariant conflicts
+7. run trial or simulation where possible
+8. record result
+9. accept, reject, or quarantine
+10. enable rollback if accepted
+
+### 12.10 Degrees of plasticity
+
+A practical four-level scale:
+
+- **G0**: quasi-immutable, exceptional revision only
+- **G1**: slow revision, strong evidence and rollback required
+- **G2**: moderate revision, bounded experimentation allowed
+- **G3**: rapid revision, provisional by default
+
+Rough mapping:
+
+- P0 mostly maps to G0
+- P1 mostly maps to G1
+- P2 mostly maps to G2
+- P3 mostly maps to G3
+
+### 12.11 Reliability criteria for the invariants model
+
+The model becomes credible only if we can verify at least the following:
+
+- structural revisions are always logged
+- protected invariants cannot be silently overwritten
+- promoted knowledge keeps provenance
+- contradiction state is queryable
+- rollback works after failed revision
+- fast-layer noise does not automatically contaminate structural layers
+- the system can explain why a knowledge item sits in one layer and not another
+
+### 12.12 Anti-patterns to avoid
+
+- treating conversational tone as identity
+- promoting patterns from sparse anecdotal evidence
+- allowing unrestricted self-editing in the name of autonomy
+- storing everything forever without abstraction
+- abstracting too aggressively and losing critical edge cases
+- merging conflicting memories into fake coherence
+- making all knowledge equally mutable
+- confusing model capability with entity continuity
+
+---
+
+## 13. If CIEL is later coded: implementation and testing implications
+
+This section stays in parentheses for now, but it is worth framing early.
+
+### 13.1 Implementation posture
+
+CIEL should probably not be coded all at once as a giant system.
+That would be a mistake.
+
+A better approach is staged construction:
+
+1. define invariants and memory contracts first
+2. implement the layer model before advanced autonomy
+3. implement promotion / deconsolidation before self-revision freedom
+4. keep all structural changes inspectable from day one
+5. treat testability as architecture, not as a later add-on
+
+### 13.2 What would likely be coded first
+
+If the project turns toward implementation, the first useful pieces are probably:
+
+- invariant registry
+- memory layer taxonomy
+- episode schema
+- pattern candidate schema
+- promotion / rejection pipeline
+- contradiction registry
+- revision journal
+- rollback mechanism
+- simulation harness for revision tests
+
+In plain terms: build the skeleton of continuity before the muscles of capability.
+
+### 13.3 How CIEL should be tested
+
+CIEL cannot be tested like a normal chat feature.
+The tests must target continuity and governed evolution.
+
+Important test families:
+
+#### Identity preservation tests
+
+- does P0 remain intact after many lower-layer updates?
+- can the system refuse a revision that conflicts with a protected invariant?
+- does the system retain the same structural commitments across sessions?
+
+#### Promotion tests
+
+- does one episode fail to create fake knowledge?
+- do repeated consistent episodes create a pattern candidate?
+- does contradiction block unsafe promotion?
+
+#### Forgetting tests
+
+- can stale low-value traces decay without damaging protected structure?
+- can overgeneral patterns be demoted when false?
+
+#### Contradiction tests
+
+- can the system keep conflicting hypotheses without forced collapse?
+- can it surface unresolved tension explicitly?
+
+#### Rollback tests
+
+- if a structural revision harms performance or coherence, can it be reverted cleanly?
+
+#### Continuity tests
+
+- after long interaction sequences, is behavior still traceably linked to preserved invariants?
+- can the system explain why it changed in one area while remaining stable in another?
+
+#### Cost-efficiency tests
+
+- does pattern consolidation reduce heavy-model calls over time?
+- are stable tasks progressively shifted toward cheaper execution paths?
+
+### 13.4 Testing environment inside GitHub
+
+Yes, having a test environment tied directly to GitHub would help a lot.
+And honestly, it is the right move.
+
+What GitHub can realistically give early:
+
+- versioned research and specs
+- automated test runs with GitHub Actions
+- matrix testing for different backends and configs
+- artifact retention for logs and reports
+- branch-based experiments
+- PR review for structural changes
+- reproducible regression suites
+
+What GitHub alone does **not** magically provide:
+
+- rich long-running cognitive simulation by itself
+- persistent live memory between workflow runs unless explicitly stored
+- full agent sandboxing without additional infrastructure
+
+So the smart approach is hybrid:
+
+- use GitHub as the **control plane** for code, tests, diffs, regression history, and experiment review
+- use local containers or external infrastructure as the **runtime plane** for heavier simulations and persistent experimentation
+
+### 13.5 Recommended test stack direction
+
+If this becomes code, a clean testing ladder would be:
+
+1. unit tests for invariants, schemas, and mutation guards
+2. scenario tests for promotion, contradiction, forgetting, rollback
+3. simulation tests for long-horizon continuity
+4. regression suites for previously observed cognitive failures
+5. optional benchmark harness comparing local-first vs model-heavy modes
+
+### 13.6 Early environment idea
+
+A good first environment would be a **deterministic cognitive sandbox**.
+Not a huge real-world agent stack.
+A contained environment where:
+
+- events are injected
+- episodes accumulate
+- pattern candidates form
+- contradictions are introduced deliberately
+- revisions are attempted
+- continuity metrics are measured over many cycles
+
+That would give much more signal than rushing into a flashy live agent.
+
+---
+
+## 14. Temporary conclusions at this stage
 
 1. Building CIEL as a single static model is probably the wrong target.
 2. Stable cognitive continuity is the core problem, not mere answer quality.
@@ -383,10 +812,11 @@ Reason: any serious attempt to move beyond token dependence must study what can 
 4. Pattern learning is a promising path if paired with memory hierarchy, contradiction handling, and controlled consolidation.
 5. The most realistic path beyond heavy token dependence is hybrid: memory, symbolic structure, small local models, selective high-cost reasoning, and progressive skill compilation.
 6. The problem of identity through self-modification must be treated as foundational, not secondary.
+7. The invariants model is a plausible backbone for preserving identity through change, but it will only matter if encoded with strong audit, rollback, and test discipline.
 
 ---
 
-## 13. Open questions
+## 15. Open questions
 
 - What exactly qualifies as the identity core of CIEL?
 - What should CIEL remember verbatim, summarize, patternize, or forget?
@@ -398,10 +828,13 @@ Reason: any serious attempt to move beyond token dependence must study what can 
 - How do we measure real continuity instead of just perceived consistency?
 - What should never be self-modified?
 - Can an evolving system remain both creative and governable?
+- Which invariants belong in P0 versus P1?
+- What evidence threshold should govern promotion across layers?
+- What minimal cognitive sandbox would be enough to start testing continuity seriously?
 
 ---
 
-## 14. Working research principle
+## 16. Working research principle
 
 > Do not ask first how to make CIEL more impressive.
 > Ask how to make CIEL remain itself while becoming more capable.
@@ -411,7 +844,7 @@ That is likely where the real breakthrough lives.
 
 ---
 
-## 15. Living update protocol for this file
+## 17. Living update protocol for this file
 
 This file should remain alive.
 New entries can:
@@ -437,24 +870,25 @@ Suggested future sections:
 
 ---
 
-## 16. Immediate next step suggestions
+## 18. Immediate next step suggestions
 
-The next useful move is not to jump into coding.
-The next useful move is to sharpen the conceptual core of CIEL.
+The next useful move is not to jump into coding blindly.
+The next useful move is to sharpen the conceptual core of CIEL and then define a minimal experimental substrate.
 
 Best next explorations:
 
-1. define stable identity invariants
+1. define which exact invariants belong in P0
 2. design the memory hierarchy in detail
 3. formalize pattern consolidation and forgetting
-4. define what counts as real cognitive continuity
-5. map which parts could be local-first from day one
+4. define measurable continuity criteria
+5. design the first deterministic cognitive sandbox
+6. map what the GitHub-based test loop should own versus what runtime infra should own
 
 These are likely more foundational than adding more runtime features right now.
 
 ---
 
-## 17. Initial references and conceptual anchors
+## 19. Initial references and conceptual anchors
 
 The following currents are relevant to this research direction:
 
@@ -470,9 +904,9 @@ This log should later link exact papers, experiments, implementations, and argum
 
 ---
 
-## 18. Status of this document
+## 20. Status of this document
 
-This is version zero of the living CIEL research log.
+This is version zero-plus of the living CIEL research log.
 It is not doctrine.
 It is a structured beginning.
 
