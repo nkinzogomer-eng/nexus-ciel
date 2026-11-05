@@ -33,7 +33,7 @@ class DeterministicOutputVerifier:
                     "passed": False,
                     "reason": "no deterministic verification contract was supplied",
                 }],
-                evidence={"oracle": None, "output_present": bool(output)},
+                evidence={"oracle": None, "output_present": bool(output), "reason": "no deterministic verification contract was supplied"},
             )
 
         mode = spec.get("mode")
