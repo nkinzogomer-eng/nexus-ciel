@@ -114,8 +114,8 @@ Les éléments suivants ont été ajoutés sur la branche de finalisation après
 
 ## Dette et risques connus
 
-- Budget de mission déclaré mais pas encore bloquant: Mission Guard Phase 3.
-- Providers encore simulés: gateway réel, timeouts, retries bornés, circuit breaker à construire.
+- Mission Guard de budget implémenté sur la branche: préflight, coût réel et budget cumulatif d'escalade; CI du dernier commit encore requise.
+- Adaptateur OpenAI-compatible réel implémenté sur la branche; configuration explicite par variables d'environnement. Timeouts présents, mais retries bornés, circuit breaker et profils multi-fournisseurs restent à construire.
 - Télémétrie encore volatile et non persistante.
 - Cache en mémoire sans expiration.
 - Reprise automatique absente par choix: politique actuelle = abandon contrôlé au redémarrage.
