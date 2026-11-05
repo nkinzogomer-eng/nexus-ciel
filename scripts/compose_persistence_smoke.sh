@@ -65,7 +65,7 @@ for _ in range(30):
     except urllib.error.HTTPError as exc:
         if exc.code != 404:
             raise
-    if report is not None and state.get("status") in {"validated", "abandoned"}:
+    if report is not None and state.get("status") in {"validated", "partial", "abandoned"}:
         break
     time.sleep(1)
 
