@@ -98,6 +98,15 @@ Les éléments suivants ont été ajoutés sur la branche de finalisation après
 
 **Preuves:** run `42049088295`: 65 tests passés et gate Compose verte sur un commit intermédiaire. Le cumul budgétaire, l'adaptateur réel et les tests associés ont été ajoutés ensuite; un nouveau run CI sur la tête actuelle est obligatoire avant de déclarer ces changements validés.
 
+## Phase 2b — lancement isolé (5 novembre 2026)
+
+- Branche créée depuis le candidat finalisé validé `322bfd3b1e8a0697e1d7c866ffbca2696f716c35`: `work/ciel-memory-core-2026-11-05`.
+- Contrat initial écrit dans [`docs/memory-core-skillcards-contract.md`](docs/memory-core-skillcards-contract.md).
+- **État réel:** spécification seulement; aucune implémentation Memory Core ni migration PostgreSQL n'est déclarée terminée.
+- Règles structurantes: mémoire dérivée avec provenance immuable, SkillCard candidate après une mission, corroboration après deux missions sources distinctes, contradictions/invalidation explicites, retrieval déterministe, mémoire consultative et incapable de modifier le Capability Registry.
+- Prochaine étape: implémenter les schémas typés et l'interface repository, puis tests de contrat avant persistance PostgreSQL.
+- Cette branche est indépendante de PR #10; aucune fusion dans `main` et aucune modification de PR #10.
+
 ## Phase 2b: Memory Core et SkillCards
 
 À commencer uniquement après le jalon durable:
