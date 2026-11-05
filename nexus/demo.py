@@ -1,9 +1,7 @@
-"""Runnable smoke demo: prove Nexus Ciel does something end to end.
+"""Runnable smoke demo for the synthetic provider cascade.
 
-    python -m nexus.demo "summarise the sprint"
-
-Runs a real mission through the state graph, the chained journal, the event
-bus and the economic cascade, then prints the report and the escalation trace.
+The demo explicitly supplies a deterministic oracle because its providers are
+fixtures. It is not evidence of production model or tool execution.
 """
 from __future__ import annotations
 
@@ -27,13 +25,20 @@ async def run(
 ) -> dict:
     router = AdaptiveRouter(
         [
-            # declared first on purpose: the cascade must reorder it
             SecondaryProvider(confidence=secondary_confidence),
             LocalProvider(confidence=local_confidence, available=local_available),
         ]
     )
     runtime = NexusRuntime(router=router)
-    mission = Mission(\n        objective=objective,\n        constraints={"verification": {"mode": "contains_any", "needles": ["local:", "secondary:"]}},\n    )
+    mission = Mission(
+        objective=objective,
+        constraints={
+            "verification": {
+                "mode": "contains_any",
+                "needles": ["local:", "secondary:"],
+            }
+        },
+    )
     mission_id = await runtime.accept(mission)
     report = runtime.report(mission_id)
     state = runtime.state_graph.get(UUID(mission_id))
@@ -48,17 +53,18 @@ async def run(
         "state": state.status,
         "verdict": report.verdict,
         "summary": report.summary,
+        "output": report.output,
         "cost_usd": report.cost_usd,
         "cost_avoided_usd": router.total_cost_avoided_usd,
         "trace": report.actions,
         "journal_chain_valid": runtime.journal.verify_chain(),
-        "journal_entries": [e.type for e in runtime.journal.entries()],
-        "events": [e.type for e in runtime.bus.events],
+        "journal_entries": [entry.type for entry in runtime.journal.entries()],
+        "events": [event.type for event in runtime.bus.events],
     }
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Nexus Ciel smoke demo")
+    parser = argparse.ArgumentParser(description="Nexus Ciel synthetic-provider smoke demo")
     parser.add_argument("objective", nargs="?", default="summarise the sprint")
     parser.add_argument("--local-confidence", type=float, default=0.80)
     parser.add_argument("--local-unavailable", action="store_true")
