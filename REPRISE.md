@@ -15,7 +15,7 @@
 - PR #4 et #7: fermées comme remplacées, leur sujet (honnêteté de la reprise après crash) est couvert par PR #9.
 - PR #5: fermée comme remplacée, son contrat de checkpointing est couvert par la ligne persistante de PR #3.
 - PR #6: scaffold historique vert, remplacé par la ligne persistante, fermé.
-- Aucune PR ouverte à ce jour.
+- PR #10 ouverte en brouillon sur `work/ciel-finalization-2026-11-05`; elle n'est pas fusionnée.
 
 ## Politique de reprise après crash
 
@@ -60,7 +60,7 @@ Décision arrêtée, valable tant qu'aucune ré-exécution déterministe n'exist
 - `PersistentRuntime` recharge les sources canoniques après recréation du processus.
 - Au redémarrage, toute mission laissée `in_progress` est requalifiée en `abandoned`, reçoit un rapport `FAIL` honnête, et journalise `mission_interrupted` tant qu'aucune reprise déterministe n'existe.
 - La gate obligatoire démarre un sous-processus, accepte une mission, le tue par `SIGKILL`, redémarre un second processus et vérifie état, rapport et intégrité du journal.
-- La télémétrie de routage persistante et la validation Compose restent à finaliser.
+- La télémétrie de routage persistante reste à finaliser. La validation Compose est passée sur le candidat de persistance.
 
 ## Preuves de validation sur la branche de finalisation (5 novembre 2026)
 
@@ -82,6 +82,21 @@ La branche `work/ciel-finalization-2026-11-05`, proposée dans la PR #10, a pass
 4. Garder la politique de reprise en abandon contrôlé tant qu'aucune ré-exécution déterministe n'existe.
 5. Cocher la persistance Phase 0 uniquement après ces preuves.
 6. Ensuite seulement commencer Memory Core et SkillCards.
+
+## Finalisation CIEL — travail additionnel (5 novembre 2026)
+
+Les éléments suivants ont été ajoutés sur la branche de finalisation après le candidat de persistance:
+
+- `DeterministicOutputVerifier`: modes `contains_all`, `contains_any`, `exact_match`, `json_valid` et `non_empty`. Une réponse de modèle seule ne peut plus produire un `PASS`; sans oracle pris en charge, le résultat est `PARTIAL`.
+- Les rapports conservent le texte généré pour que l'utilisateur puisse examiner le résultat.
+- `MissionGuard` valide les budgets; le routeur pré-évalue les fournisseurs, contrôle les coûts réels et cumule les dépenses sur les escalades.
+- `OpenAICompatibleProvider` réalise un appel HTTP réel vers `/chat/completions`, avec timeout, usage tokens et estimation/coût calculé. Les prix hébergés doivent être explicitement configurés.
+- L'API de production n'active plus silencieusement les fournisseurs synthétiques. Ceux-ci sont réservés à `NEXUS_TEST_MODE` dans les tests.
+- `.env.example` et README actualisés.
+
+**Limites restantes:** l'oracle est volontairement simple et ne prouve pas la sémantique d'une mission complexe; un seul profil de fournisseur réel est configuré; aucun moteur d'outils, planificateur multi-étapes, boucle de mission longue, Memory Core, SkillCards, circuit breaker, télémétrie persistante ou interface Telegram complète n'est encore validé.
+
+**Preuves:** run `42049088295`: 65 tests passés et gate Compose verte sur un commit intermédiaire. Le cumul budgétaire, l'adaptateur réel et les tests associés ont été ajoutés ensuite; un nouveau run CI sur la tête actuelle est obligatoire avant de déclarer ces changements validés.
 
 ## Phase 2b: Memory Core et SkillCards
 
