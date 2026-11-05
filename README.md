@@ -2,11 +2,11 @@
 
 ## Statut actuel
 
-**Phase 1 close. Phase 2 en cours: persistance PostgreSQL branchée, gate kill/restart encore à valider sur `main`.**
+**Phase 1 close. Phase 2: les gates PostgreSQL SIGKILL et restauration Docker Compose passent sur la branche de finalisation; intégration et revalidation sur `main` encore nécessaires.**
 
 Dernier commit `main`: `551116e` (squash de PR #9, 6 août 2026). PR #3 et PR #9 fusionnées en squash. PR #4, #5, #6, #7 et #8 fermées comme doublons ou remplacées par la ligne persistante. Aucune PR ouverte.
 
-La CI de validation des PR était verte, avec seulement un warning Node.js 20 externe. Le run CI de `main` sur `551116e` n'a pas encore été observé jusqu'à sa conclusion et n'est donc **pas** compté comme vert.
+La CI de la PR #10 est verte sur le candidat de finalisation: 59 tests passés, gate PostgreSQL SIGKILL réussie et restauration Compose validée. Cela ne constitue pas encore une validation de `main`; aucun merge n'a été effectué.
 
 Voir [REPRISE.md](REPRISE.md) pour la source de vérité.
 
