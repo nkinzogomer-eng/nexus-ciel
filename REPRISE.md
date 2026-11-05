@@ -6,7 +6,7 @@
 
 - Objectif: Nexus Ciel interne d'abord, auto-hébergé sur un hôte maîtrisé.
 - Vision: Manas gelé, capacités et politiques probatoires et réversibles, apprentissage hors mission, cascade économique, validation en couches.
-- Dernier commit main: `551116e` (`Phase 2: abandon interrupted missions honestly after restart (#9)`), fusionné le 6 août 2026.
+- Base actuelle de `main` pour la branche de finalisation: `3d8cf71b42ec9b3260768c5c454808bb450a153d` (journal de recherche CIEL, 19 août 2026).
 - Commit précédent: `078bbdd` (`docs: record Phase 2 PR merge and next persistence gate`).
 - Phase active: **Phase 2 ouverte, persistance PostgreSQL branchée; la reprise automatique reste interdite et une mission interrompue est désormais requalifiée en abandon contrôlé au redémarrage.**
 - PR #3: fusionnée en squash.
