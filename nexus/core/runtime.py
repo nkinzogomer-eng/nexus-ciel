@@ -7,6 +7,7 @@ from nexus.schemas import Event, Mission, Report
 
 from .capability_registry import CapabilityRegistry
 from .mission_journal import MissionJournal
+from .mission_guard import MissionGuard, MissionGuardViolation
 from .state_graph import StateGraph
 from .verification import DeterministicOutputVerifier
 
@@ -26,6 +27,7 @@ class NexusRuntime:
         self.reports: dict[str, Report] = {}
         self.router = router
         self.verifier = verifier or DeterministicOutputVerifier()
+        self.guard = MissionGuard()
 
     async def accept(self, mission: Mission) -> str:
         started = time.perf_counter()
@@ -70,10 +72,25 @@ class NexusRuntime:
         from nexus.providers import CompletionRequest
         from nexus.router import RoutingExhausted
 
+        try:
+            budget = self.guard.budget_limit(mission)
+        except MissionGuardViolation as exc:
+            return Report(
+                mission_id=mission.mission_id,
+                verdict="FAIL",
+                objective=mission.objective,
+                summary=f"mission guard rejected constraints: {exc}",
+                iterations=0,
+                duration_s=round(time.perf_counter() - started, 6),
+                validation={"criteria": [{"name": "mission budget valid", "passed": False}]},
+                guard_events=[{"type": "invalid_budget", "detail": str(exc)}],
+            )
+
         request = CompletionRequest(
             prompt=mission.objective,
             mission_id=str(mission.mission_id),
             critical=mission.priority == "urgent",
+            max_cost_usd=budget,
         )
         before = len(self.router.decisions)
         try:
