@@ -25,7 +25,7 @@ async def test_provider_confidence_alone_never_proves_mission_success():
 
 @pytest.mark.asyncio
 async def test_deterministic_contains_all_oracle_can_validate_output():
-    runtime = NexusRuntime(router=AdaptiveRouter([LocalProvider(confidence=0.10)]))
+    runtime = NexusRuntime(router=AdaptiveRouter([LocalProvider(confidence=0.99)]))
     mission = Mission(
         objective="produce a result",
         constraints={"verification": {"mode": "contains_all", "needles": ["local:", "produce a result"]}},
