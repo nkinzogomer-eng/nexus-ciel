@@ -33,7 +33,7 @@ async def run(
         ]
     )
     runtime = NexusRuntime(router=router)
-    mission = Mission(objective=objective)
+    mission = Mission(\n        objective=objective,\n        constraints={"verification": {"mode": "contains_any", "needles": ["local:", "secondary:"]}},\n    )
     mission_id = await runtime.accept(mission)
     report = runtime.report(mission_id)
     state = runtime.state_graph.get(UUID(mission_id))
