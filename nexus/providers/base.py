@@ -8,6 +8,7 @@ class CompletionRequest:
     prompt: str
     mission_id: str | None = None
     critical: bool = False
+    max_cost_usd: float | None = None
     def cache_key(self) -> str:
         """Cache identity of the request.
 

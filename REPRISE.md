@@ -6,7 +6,7 @@
 
 - Objectif: Nexus Ciel interne d'abord, auto-hébergé sur un hôte maîtrisé.
 - Vision: Manas gelé, capacités et politiques probatoires et réversibles, apprentissage hors mission, cascade économique, validation en couches.
-- Dernier commit main: `551116e` (`Phase 2: abandon interrupted missions honestly after restart (#9)`), fusionné le 6 août 2026.
+- Base actuelle de `main` pour la branche de finalisation: `3d8cf71b42ec9b3260768c5c454808bb450a153d` (journal de recherche CIEL, 19 août 2026).
 - Commit précédent: `078bbdd` (`docs: record Phase 2 PR merge and next persistence gate`).
 - Phase active: **Phase 2 ouverte, persistance PostgreSQL branchée; la reprise automatique reste interdite et une mission interrompue est désormais requalifiée en abandon contrôlé au redémarrage.**
 - PR #3: fusionnée en squash.
@@ -15,7 +15,7 @@
 - PR #4 et #7: fermées comme remplacées, leur sujet (honnêteté de la reprise après crash) est couvert par PR #9.
 - PR #5: fermée comme remplacée, son contrat de checkpointing est couvert par la ligne persistante de PR #3.
 - PR #6: scaffold historique vert, remplacé par la ligne persistante, fermé.
-- Aucune PR ouverte à ce jour.
+- PR #10 ouverte en brouillon sur `work/ciel-finalization-2026-11-05`; elle n'est pas fusionnée.
 
 ## Politique de reprise après crash
 
@@ -60,7 +60,19 @@ Décision arrêtée, valable tant qu'aucune ré-exécution déterministe n'exist
 - `PersistentRuntime` recharge les sources canoniques après recréation du processus.
 - Au redémarrage, toute mission laissée `in_progress` est requalifiée en `abandoned`, reçoit un rapport `FAIL` honnête, et journalise `mission_interrupted` tant qu'aucune reprise déterministe n'existe.
 - La gate obligatoire démarre un sous-processus, accepte une mission, le tue par `SIGKILL`, redémarre un second processus et vérifie état, rapport et intégrité du journal.
-- La télémétrie de routage persistante et la validation Compose restent à finaliser.
+- La télémétrie de routage persistante reste à finaliser. La validation Compose est passée sur le candidat de persistance.
+
+## Preuves de validation sur la branche de finalisation (5 novembre 2026)
+
+La branche `work/ciel-finalization-2026-11-05`, proposée dans la PR #10, a passé la CI GitHub Actions sur le commit `4b57e79f0f8c2bcb2a73bb8eafd81675a11504b4`.
+
+- Run CI: [42016899505](https://github.com/nkinzogomer-eng/nexus-ciel/actions/runs/42016899505), conclusion `success`.
+- 59 tests pytest passés en 1,58 s; aucun test ignoré dans cette exécution.
+- `test_postgres_sigkill_gate_recovers_and_abandons_mission`: PASS avec le service PostgreSQL réel de la CI.
+- Gate Docker Compose: PASS; mission `validated` et rapport `PASS` conservés après `compose down` puis `compose up`, chaîne du Mission Journal valide.
+- Migrations PostgreSQL, smoke run et test du chemin non routable: PASS.
+
+**Portée exacte:** ces preuves valident le candidat de Phase 2 sur la branche et la PR #10. Elles ne signifient pas que `main` a déjà reçu ces changements. La Phase 2 ne sera fermée qu'après intégration contrôlée et vérification du commit résultant sur `main`. Aucun merge n'est effectué par cette mise à jour.
 
 ## Prochaines actions obligatoires
 
@@ -70,6 +82,21 @@ Décision arrêtée, valable tant qu'aucune ré-exécution déterministe n'exist
 4. Garder la politique de reprise en abandon contrôlé tant qu'aucune ré-exécution déterministe n'existe.
 5. Cocher la persistance Phase 0 uniquement après ces preuves.
 6. Ensuite seulement commencer Memory Core et SkillCards.
+
+## Finalisation CIEL — travail additionnel (5 novembre 2026)
+
+Les éléments suivants ont été ajoutés sur la branche de finalisation après le candidat de persistance:
+
+- `DeterministicOutputVerifier`: modes `contains_all`, `contains_any`, `exact_match`, `json_valid` et `non_empty`. Une réponse de modèle seule ne peut plus produire un `PASS`; sans oracle pris en charge, le résultat est `PARTIAL`.
+- Les rapports conservent le texte généré pour que l'utilisateur puisse examiner le résultat.
+- `MissionGuard` valide les budgets; le routeur pré-évalue les fournisseurs, contrôle les coûts réels et cumule les dépenses sur les escalades.
+- `OpenAICompatibleProvider` réalise un appel HTTP réel vers `/chat/completions`, avec timeout, usage tokens et estimation/coût calculé. Les prix hébergés doivent être explicitement configurés.
+- L'API de production n'active plus silencieusement les fournisseurs synthétiques. Ceux-ci sont réservés à `NEXUS_TEST_MODE` dans les tests.
+- `.env.example` et README actualisés.
+
+**Limites restantes:** l'oracle est volontairement simple et ne prouve pas la sémantique d'une mission complexe; un seul profil de fournisseur réel est configuré; aucun moteur d'outils, planificateur multi-étapes, boucle de mission longue, Memory Core, SkillCards, circuit breaker, télémétrie persistante ou interface Telegram complète n'est encore validé.
+
+**Preuves:** run `42049088295`: 65 tests passés et gate Compose verte sur un commit intermédiaire. Le cumul budgétaire, l'adaptateur réel et les tests associés ont été ajoutés ensuite; un nouveau run CI sur la tête actuelle est obligatoire avant de déclarer ces changements validés.
 
 ## Phase 2b: Memory Core et SkillCards
 
@@ -87,8 +114,8 @@ Décision arrêtée, valable tant qu'aucune ré-exécution déterministe n'exist
 
 ## Dette et risques connus
 
-- Budget de mission déclaré mais pas encore bloquant: Mission Guard Phase 3.
-- Providers encore simulés: gateway réel, timeouts, retries bornés, circuit breaker à construire.
+- Mission Guard de budget implémenté sur la branche: préflight, coût réel et budget cumulatif d'escalade; CI du dernier commit encore requise.
+- Adaptateur OpenAI-compatible réel implémenté sur la branche; configuration explicite par variables d'environnement. Timeouts présents, mais retries bornés, circuit breaker et profils multi-fournisseurs restent à construire.
 - Télémétrie encore volatile et non persistante.
 - Cache en mémoire sans expiration.
 - Reprise automatique absente par choix: politique actuelle = abandon contrôlé au redémarrage.

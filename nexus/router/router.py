@@ -127,9 +127,16 @@ class AdaptiveRouter:
                 return cached
 
         attempt = 0
+        spent_usd = 0.0
         skipped: list[str] = []
         for provider in self.eligible_providers(request):
             label = f"{provider.name}({provider.stage})"
+            estimate = self._cost_of(provider, request)
+            if request.max_cost_usd is not None and spent_usd + estimate > request.max_cost_usd:
+                skipped.append(
+                    f"{label}: cumulative estimated cost {spent_usd + estimate:.10f} exceeds mission budget {request.max_cost_usd:.10f}"
+                )
+                continue
 
             try:
                 health = await provider.health()
@@ -167,6 +174,21 @@ class AdaptiveRouter:
                 continue
 
             elapsed_ms = (time.perf_counter() - started) * 1000.0
+            if request.max_cost_usd is not None and spent_usd + result.cost_usd > request.max_cost_usd:
+                self._record(
+                    stage=provider.stage,
+                    provider=provider.name,
+                    result=result,
+                    escalated=attempt > 0,
+                    reason="provider exceeded mission budget",
+                    attempt=attempt,
+                    measured_latency_ms=elapsed_ms,
+                )
+                raise RoutingExhausted(
+                    f"mission budget exceeded: provider {provider.name} charged "
+                    f"cumulative {spent_usd + result.cost_usd:.10f}, limit {request.max_cost_usd:.10f}"
+                )
+            spent_usd += result.cost_usd
             sufficient = result.confidence >= threshold
             self._record(
                 stage=provider.stage,

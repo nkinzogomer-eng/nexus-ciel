@@ -14,7 +14,7 @@ from nexus.schemas import Mission
 async def test_postgres_store_restores_runtime_after_restart():
     store = PostgresSnapshotStore(os.environ["NEXUS_DATABASE_URL"], snapshot_key="ci-phase2")
     runtime = PersistentRuntime(store, router=AdaptiveRouter([LocalProvider(confidence=0.90)]))
-    mission_id = await runtime.accept(Mission(objective="postgres restart proof"))
+    mission_id = await runtime.accept(Mission(objective="postgres restart proof", constraints={"verification": {"mode": "contains_all", "needles": ["local:"]}}))
     restarted = PersistentRuntime(store)
     state = restarted.state_graph.get(UUID(mission_id))
     report = restarted.report(mission_id)

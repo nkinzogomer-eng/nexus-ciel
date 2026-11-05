@@ -1,29 +1,59 @@
 # Nexus Ciel
 
-## Statut actuel
+Nexus Ciel is an evolving, self-hosted mission runtime. The repository is not yet a production-ready autonomous cognitive operating system. Its current work is focused on truthful mission outcomes, durable state, provider integration, bounded spending, and verifiable execution.
 
-**Phase 1 close. Phase 2 en cours: persistance PostgreSQL branchée, gate kill/restart encore à valider sur `main`.**
+## Current branch
 
-Dernier commit `main`: `551116e` (squash de PR #9, 6 août 2026). PR #3 et PR #9 fusionnées en squash. PR #4, #5, #6, #7 et #8 fermées comme doublons ou remplacées par la ligne persistante. Aucune PR ouverte.
+Finalization work is isolated on `work/ciel-finalization-2026-11-05` and proposed in [PR #10](https://github.com/nkinzogomer-eng/nexus-ciel/pull/10). Nothing in this branch has been merged into `main`.
 
-La CI de validation des PR était verte, avec seulement un warning Node.js 20 externe. Le run CI de `main` sur `551116e` n'a pas encore été observé jusqu'à sa conclusion et n'est donc **pas** compté comme vert.
+The persistence candidate has passed PostgreSQL process-kill/restart recovery tests and a Docker Compose full-stack stop/start with a named PostgreSQL volume. It verified restoration of mission state, report, and Mission Journal integrity.
 
-Voir [REPRISE.md](REPRISE.md) pour la source de vérité.
+Further work has since added deterministic verification, budget enforcement, and an OpenAI-compatible provider adapter. These newest changes must pass their own CI run before being treated as validated.
 
-## Politique de reprise après crash
+## Important execution semantics
 
-Une mission persistée en `in_progress` retrouvée au redémarrage n'est **jamais** reprise automatiquement. Elle est requalifiée en `abandoned` de façon déterministe, tout rapport `PASS` périmé est remplacé par un `FAIL` d'interruption honnête, et une entrée `mission_interrupted` est ajoutée au Mission Journal.
+A provider response is not proof that the mission objective was achieved.
 
-Un runtime redémarré ne doit jamais laisser croire à une résumabilité qu'il n'a pas. La reprise humaine reste une option ouverte pour une phase ultérieure.
+- `PASS`: a supplied, supported deterministic verification contract passed.
+- `FAIL`: execution or a supported verification contract failed.
+- `PARTIAL`: output exists but no adequate deterministic acceptance oracle was supplied, or the supplied oracle is unsupported.
 
-## Preuve obligatoire Phase 2
+The verifier currently supports `contains_all`, `contains_any`, `exact_match`, `json_valid`, and `non_empty`. These are output-contract checks, not general semantic proofs. Complex missions still need task-specific executable oracles and independent validation.
 
-La gate démarre un sous-processus Nexus, accepte une mission, le tue par `SIGKILL`, recrée un runtime avec la même base PostgreSQL, puis exige la récupération de l'état, du rapport et de la chaîne du journal. Tant que cette gate et la restauration Compose ne sont pas vertes sur `main`, la persistance Phase 0 et la Phase 2 restent ouvertes.
+The model's configured routing-confidence value is used only to select a provider stage. It is not treated as evidence of correctness.
 
-## Route actuelle
+## Provider configuration
 
-`NEXUS_DATABASE_URL` active `build_runtime()` et le `PostgresSnapshotStore`; sans cette variable, Nexus reste explicitement en mémoire. Le store normalise `postgresql://` pour SQLAlchemy et `postgresql+psycopg://` pour psycopg.
+Production API startup no longer silently enables the synthetic providers used by tests. Copy `.env.example` to `.env`, configure an actual OpenAI-compatible endpoint, then start the Compose stack. The API container receives the configured values explicitly; the example uses `host.docker.internal` for a model server running on the host. The variables are:
 
-## Prochaine étape
+- `NEXUS_LLM_BASE_URL`
+- `NEXUS_LLM_MODEL`
+- optional `NEXUS_LLM_API_KEY`
+- `NEXUS_LLM_STAGE`
+- timeout, maximum output tokens, routing hint, and token prices
 
-Confirmer le run CI de `main`, faire passer la gate kill/restart, tester la restauration du volume Docker Compose, puis seulement construire Memory Core et SkillCards.
+For hosted endpoints, explicit input and output token prices are required so the mission budget guard can estimate costs. The current adapter supports one configured endpoint; retry policies, circuit breakers, multiple live provider profiles, and tool/function calling remain unfinished.
+
+Synthetic `LocalProvider` and `SecondaryProvider` implementations are enabled only by the test environment. Do not set `NEXUS_TEST_MODE=1` in production.
+
+## Mission budget
+
+A mission's `constraints.budget_usd` is checked before provider calls. Estimated and actual costs are checked across the cumulative escalation path. If a provider's actual charge exceeds the declared budget, the mission fails and the overspend is recorded; a charge already made by a provider cannot be undone.
+
+## Crash policy
+
+A persisted mission found in `in_progress` after restart is not automatically replayed. It is marked `abandoned`, any stale `PASS` report is replaced by an honest interruption `FAIL`, and `mission_interrupted` is appended to the journal. Automatic resume remains disabled until deterministic replay and idempotency are proven.
+
+## Still required before calling CIEL finalized
+
+- complete mission compiler/planner and multi-step execution loop;
+- real tool/connector execution with permissions, sandboxing, and reversible actions;
+- hard deadline, iteration, token, and wall-clock limits in addition to spending limits;
+- persistent telemetry, cache expiry, Memory Core, and evidence-backed SkillCards;
+- retries, timeouts, circuit breakers, and tested provider failover;
+- human approval and intervention paths;
+- long-running mission orchestration and restart-safe checkpoints;
+- operational interface and deployment validation, including Telegram if retained as the remote interface;
+- independent end-to-end missions that prove useful outcomes, not merely that a model returned text.
+
+See [REPRISE.md](REPRISE.md) for the detailed state, evidence, and next gates.

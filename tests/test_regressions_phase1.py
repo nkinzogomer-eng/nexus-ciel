@@ -163,7 +163,7 @@ async def test_every_provider_failing_still_fails_explicitly():
 async def test_a_mission_survives_a_provider_outage_end_to_end():
     router = AdaptiveRouter([ExplodingProvider(), SecondaryProvider(confidence=0.95)])
     runtime = NexusRuntime(router=router)
-    mission_id = await runtime.accept(Mission(objective="resilient mission"))
+    mission_id = await runtime.accept(Mission(objective="resilient mission", constraints={"verification": {"mode": "contains_all", "needles": ["secondary:"]}}))
     report = runtime.report(mission_id)
 
     assert report is not None
