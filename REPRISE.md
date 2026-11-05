@@ -62,6 +62,18 @@ Décision arrêtée, valable tant qu'aucune ré-exécution déterministe n'exist
 - La gate obligatoire démarre un sous-processus, accepte une mission, le tue par `SIGKILL`, redémarre un second processus et vérifie état, rapport et intégrité du journal.
 - La télémétrie de routage persistante et la validation Compose restent à finaliser.
 
+## Preuves de validation sur la branche de finalisation (5 novembre 2026)
+
+La branche `work/ciel-finalization-2026-11-05`, proposée dans la PR #10, a passé la CI GitHub Actions sur le commit `4b57e79f0f8c2bcb2a73bb8eafd81675a11504b4`.
+
+- Run CI: [42016899505](https://github.com/nkinzogomer-eng/nexus-ciel/actions/runs/42016899505), conclusion `success`.
+- 59 tests pytest passés en 1,58 s; aucun test ignoré dans cette exécution.
+- `test_postgres_sigkill_gate_recovers_and_abandons_mission`: PASS avec le service PostgreSQL réel de la CI.
+- Gate Docker Compose: PASS; mission `validated` et rapport `PASS` conservés après `compose down` puis `compose up`, chaîne du Mission Journal valide.
+- Migrations PostgreSQL, smoke run et test du chemin non routable: PASS.
+
+**Portée exacte:** ces preuves valident le candidat de Phase 2 sur la branche et la PR #10. Elles ne signifient pas que `main` a déjà reçu ces changements. La Phase 2 ne sera fermée qu'après intégration contrôlée et vérification du commit résultant sur `main`. Aucun merge n'est effectué par cette mise à jour.
+
 ## Prochaines actions obligatoires
 
 1. Observer le run CI de `main` sur `551116e` jusqu'à sa conclusion et corriger toute régression.
