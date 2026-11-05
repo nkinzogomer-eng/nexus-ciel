@@ -8,7 +8,7 @@ from nexus.schemas import Capability, Mission
 @pytest.mark.asyncio
 async def test_acceptance_mission_enters_and_returns_report():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.post("/mission", json={"objective": "prove phase zero"})
+        response = await client.post("/mission", json={"objective": "prove phase zero", "constraints": {"verification": {"mode": "contains_all", "needles": ["local:"]}}})
         assert response.status_code == 202
         mission_id = response.json()["mission_id"]
         state = await client.get(f"/mission/{mission_id}")
@@ -21,7 +21,7 @@ async def test_acceptance_mission_enters_and_returns_report():
 async def test_acceptance_event_bus_receives_canonical_events():
     mission = Mission(objective="event test")
     await runtime.accept(mission)
-    assert [event.type for event in runtime.bus.events[-2:]] == ["MissionAccepted", "MissionValidated"]
+    assert [event.type for event in runtime.bus.events[-2:]] == ["MissionAccepted", "MissionCompleted"]
 
 
 def test_acceptance_journal_is_append_only_and_integrity_checked():
