@@ -37,7 +37,7 @@ class DeterministicOutputVerifier:
             )
 
         mode = spec.get("mode")
-        if mode not in self.SUPPORTED_MODES:
+        if not isinstance(mode, str) or mode not in self.SUPPORTED_MODES:
             return VerificationResult(
                 verdict="PARTIAL",
                 criteria=[{
