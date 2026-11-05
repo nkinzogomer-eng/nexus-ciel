@@ -9,10 +9,11 @@ from nexus.schemas import Mission
 @pytest.mark.asyncio
 async def test_provider_confidence_alone_never_proves_mission_success():
     runtime = NexusRuntime(router=AdaptiveRouter([LocalProvider(confidence=0.99)]))
-    mission_id = await runtime.accept(Mission(objective="unverified objective"))
+    mission = Mission(objective="unverified objective")
+    mission_id = await runtime.accept(mission)
 
     report = runtime.report(mission_id)
-    state = runtime.state_graph.get(Mission(objective="lookup").mission_id)
+    state = runtime.state_graph.get(mission.mission_id)
 
     assert report is not None
     assert report.verdict == "PARTIAL"
