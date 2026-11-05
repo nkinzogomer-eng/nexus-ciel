@@ -65,7 +65,7 @@ class OpenAICompatibleProvider:
         return ProviderHealth(True, f"configured endpoint for model {self.model}")
 
     def capabilities(self) -> ProviderCaps:
-        return ProviderCaps(context_window=0, tools=False, json_mode=True)
+        return ProviderCaps(context_window=0, tools=False, json_mode=False)
 
     def cost_estimate(self, request: CompletionRequest) -> float:
         estimated_input_tokens = max(1, math.ceil(len(request.prompt) / 4))
