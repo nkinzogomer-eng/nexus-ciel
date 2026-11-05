@@ -20,7 +20,7 @@ async def test_provider_confidence_alone_never_proves_mission_success():
     assert report.validation["confidence_is_not_proof"] is True
     assert "no deterministic verification contract" in report.validation["verification"]["reason"]
     assert report.output == "local:unverified objective"
-    assert state is None
+    assert state is not None and state.status == "partial"
 
 
 @pytest.mark.asyncio
