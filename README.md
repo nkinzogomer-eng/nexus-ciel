@@ -24,7 +24,7 @@ The model's configured routing-confidence value is used only to select a provide
 
 ## Provider configuration
 
-Production API startup no longer silently enables the synthetic providers used by tests. Configure an actual OpenAI-compatible endpoint with the variables in [`.env.example`](.env.example):
+Production API startup no longer silently enables the synthetic providers used by tests. Copy `.env.example` to `.env`, configure an actual OpenAI-compatible endpoint, then start the Compose stack. The API container receives the configured values explicitly; the example uses `host.docker.internal` for a model server running on the host. The variables are:
 
 - `NEXUS_LLM_BASE_URL`
 - `NEXUS_LLM_MODEL`
