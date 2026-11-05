@@ -24,8 +24,8 @@ def build_providers_from_env() -> list[ProviderAdapter]:
     host = (urlsplit(base_url).hostname or "").lower()
     is_local = host in {"localhost", "127.0.0.1", "::1"}
     shared_rate = os.getenv("NEXUS_LLM_COST_PER_1K_TOKENS")
-    input_rate = os.getenv("NEXUS_LLM_INPUT_COST_PER_1K_TOKENS", shared_rate)
-    output_rate = os.getenv("NEXUS_LLM_OUTPUT_COST_PER_1K_TOKENS", shared_rate)
+    input_rate = os.getenv("NEXUS_LLM_INPUT_COST_PER_1K_TOKENS") or shared_rate
+    output_rate = os.getenv("NEXUS_LLM_OUTPUT_COST_PER_1K_TOKENS") or shared_rate
     if not is_local and (input_rate is None or output_rate is None):
         raise ValueError(
             "hosted providers require explicit input and output token prices; "
