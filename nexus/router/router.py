@@ -134,7 +134,7 @@ class AdaptiveRouter:
             estimate = self._cost_of(provider, request)
             if request.max_cost_usd is not None and spent_usd + estimate > request.max_cost_usd:
                 skipped.append(
-                    f"{label}: estimated cost {estimate:.10f} exceeds mission budget {request.max_cost_usd:.10f}"
+                    f"{label}: cumulative estimated cost {spent_usd + estimate:.10f} exceeds mission budget {request.max_cost_usd:.10f}"
                 )
                 continue
 
