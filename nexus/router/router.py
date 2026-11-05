@@ -132,7 +132,9 @@ class AdaptiveRouter:
             label = f"{provider.name}({provider.stage})"
             estimate = self._cost_of(provider, request)
             if request.max_cost_usd is not None and estimate > request.max_cost_usd:
-                skipped.append(\n                    f"{label}: estimated cost {estimate:.10f} exceeds mission budget {request.max_cost_usd:.10f}"\n                )
+                skipped.append(
+                    f"{label}: estimated cost {estimate:.10f} exceeds mission budget {request.max_cost_usd:.10f}"
+                )
                 continue
 
             try:
