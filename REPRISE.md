@@ -94,9 +94,26 @@ Les éléments suivants ont été ajoutés sur la branche de finalisation après
 - L'API de production n'active plus silencieusement les fournisseurs synthétiques. Ceux-ci sont réservés à `NEXUS_TEST_MODE` dans les tests.
 - `.env.example` et README actualisés.
 
-**Limites restantes:** l'oracle est volontairement simple et ne prouve pas la sémantique d'une mission complexe; un seul profil de fournisseur réel est configuré; aucun moteur d'outils, planificateur multi-étapes, boucle de mission longue, Memory Core, SkillCards, circuit breaker, télémétrie persistante ou interface Telegram complète n'est encore validé.
+**Limites à cette étape:** l'oracle est volontairement simple et ne prouve pas la sémantique d'une mission complexe; un seul profil de fournisseur réel est configuré; aucun moteur d'outils, planificateur multi-étapes, boucle de mission longue, Memory Core, SkillCards, circuit breaker, télémétrie persistante ou interface Telegram complète n'était encore validé.
 
 **Preuves:** run `42049088295`: 65 tests passés et gate Compose verte sur un commit intermédiaire. Le cumul budgétaire, l'adaptateur réel et les tests associés ont été ajoutés ensuite; un nouveau run CI sur la tête actuelle est obligatoire avant de déclarer ces changements validés.
+
+## Autonomie bornée — branche `work/ciel-autonomy-half-2026-11-06`
+
+Cette branche part exactement du commit validé de la PR #10 `322bfd3b1e8a0697e1d7c866ffbca2696f716c35`. Elle n'altère ni `main` ni la branche/PR #10.
+
+- [x] Compilateur déterministe de plans explicites et exécution multi-étapes (`generate` / `tool`), avec dépendances ordonnées et validation des références.
+- [x] Registre d'outils distinct, allowlist par mission, permissions exactes et frontière d'exécution limitée aux outils idempotents en lecture seule avec timeout.
+- [x] Limites par mission: durée totale, nombre d'étapes, jetons cumulés et timeout outil. Le budget USD existant reste cumulatif sur la cascade.
+- [x] Replanification contrôlée vers une étape de repli déclarée après une erreur outil; les étapes terminées ne sont pas rejouées et l'événement est journalisé.
+- [ ] Checkpoints persistants et reprise après redémarrage: volontairement non activés; la politique de redémarrage conserve l'abandon contrôlé.
+- [ ] Memory Core et SkillCards probatoires.
+
+**Validation locale (6 novembre 2026):** `74 passed, 3 deselected` en 1,98 s. Les trois deselected checks sont les PostgreSQL-backed store/recovery tests, qui requièrent la base de service CI; les validations PostgreSQL et Compose déjà réussies restent celles du commit de base de PR #10, elles ne sont pas revalidées ici. La démonstration `python -m nexus.autonomy_demo` a rendu `PASS`, l'état `validated`, trois étapes, un échec fixture et un repli, une preuve `contains_all` et une chaîne du journal valide.
+
+**Risques et portée:** les handlers sont fournis par l'hôte et tournent dans le processus; les timeouts n'offrent pas une isolation OS et un thread sync déjà lancé peut continuer après timeout. Les permissions sont déclaratives par mission, pas encore issues d'une identité/authentification. Le plafond de jetons cumulés est constaté après chaque réponse, donc la réponse qui dépasse le plafond peut déjà avoir généré des frais. Les plans/étapes ne sont pas persistés comme checkpoints et aucune reprise automatique n'est sûre.
+
+**Plafonds système:** 300 secondes par mission, 32 étapes, 32 768 jetons cumulés, 30 secondes par outil; les limites par mission ne peuvent pas dépasser ces valeurs.
 
 ## Phase 2b: Memory Core et SkillCards
 

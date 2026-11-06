@@ -41,6 +41,11 @@ async def capabilities():
     return [cap.model_dump(mode="json") for cap in runtime.registry.list()]
 
 
+@app.get("/tools")
+async def tools():
+    return runtime.tool_registry.list()
+
+
 @app.get("/policy")
 async def policy():
     return {

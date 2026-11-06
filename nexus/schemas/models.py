@@ -46,6 +46,7 @@ class Report(BaseModel):
     iterations: int
     output: str | None = None
     cost_usd: float = 0.0
+    tokens_used: int = 0
     duration_s: float = 0.0
     actions: list[dict[str, Any]] = Field(default_factory=list)
     validation: dict[str, Any] = Field(default_factory=dict)

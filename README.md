@@ -46,9 +46,7 @@ A persisted mission found in `in_progress` after restart is not automatically re
 
 ## Still required before calling CIEL finalized
 
-- complete mission compiler/planner and multi-step execution loop;
-- real tool/connector execution with permissions, sandboxing, and reversible actions;
-- hard deadline, iteration, token, and wall-clock limits in addition to spending limits;
+- hosted production connectors with stronger isolation, approval, and reversible actions;
 - persistent telemetry, cache expiry, Memory Core, and evidence-backed SkillCards;
 - retries, timeouts, circuit breakers, and tested provider failover;
 - human approval and intervention paths;
@@ -57,3 +55,13 @@ A persisted mission found in `in_progress` after restart is not automatically re
 - independent end-to-end missions that prove useful outcomes, not merely that a model returned text.
 
 See [REPRISE.md](REPRISE.md) for the detailed state, evidence, and next gates.
+
+## Deterministic plans and bounded tools
+
+Missions may include `constraints.plan`, an ordered list of `generate` and `tool` steps. The compiler rejects duplicate IDs, unsupported step kinds, forward dependencies, and invalid fallbacks. The planner executes only the declared plan; it does not let a model grant itself capabilities. A mission without a plan compiles to one generation step for compatibility.
+
+Tool steps must name a registered tool and the mission must list that tool in `constraints.allowed_tools` and grant every required permission in `constraints.permissions`. The built-in registry accepts only idempotent, read-only handlers. Each tool call runs with a timeout. A declared `fallback_to` can redirect a failed tool step to a later step; completed steps are not replayed, and the replan is recorded in the Mission Journal. Write-capable tools, human approval, and external sandboxing are not implemented.
+
+Execution limits default to 60 seconds, 8 steps, 8,192 cumulative provider tokens, and 5 seconds per tool call. Missions can tune these positive limits in `constraints.deadline_seconds`, `max_iterations`, `max_tokens`, and `tool_timeout_seconds`, within system maxima of 300 seconds, 32 steps, 32,768 tokens, and 30 seconds per tool call. The cumulative token limit is checked after each provider response, before the next step; a response that itself exceeds the cap has already been paid for. The spending guard remains responsible for budget enforcement. An interrupted persistent mission is still abandoned on process restart; plans and step checkpoints are not used for automatic replay.
+
+Run `python -m nexus.autonomy_demo` for the offline controlled demonstration. It uses fixture tools and the synthetic local provider; it is evidence of orchestration and verification behavior, not a production connector test.
