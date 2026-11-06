@@ -5,6 +5,7 @@ import pytest
 from nexus.core import NexusRuntime
 from nexus.core.tool_registry import ToolSpec
 from nexus.providers import LocalProvider
+from nexus.providers.base import CompletionResult, ProviderCaps, ProviderHealth
 from nexus.router import AdaptiveRouter
 from nexus.schemas import Mission
 
@@ -98,6 +99,75 @@ def test_mission_limits_cannot_raise_above_system_maxima():
 
     with pytest.raises(MissionGuardViolation, match="system maximum"):
         MissionGuard().execution_limits(Mission(objective="too long", constraints={"deadline_seconds": 301}))
+
+
+@pytest.mark.asyncio
+async def test_deadline_stops_a_slow_provider_call():
+    import asyncio
+
+    class SlowProvider:
+        name = "slow-fixture"
+        stage = "small_model"
+
+        def __init__(self):
+            self.started = False
+
+        async def health(self):
+            return ProviderHealth(available=True)
+
+        async def complete(self, _request):
+            self.started = True
+            await asyncio.sleep(0.2)
+            return CompletionResult("late", 0.99)
+
+        def cost_estimate(self, _request):
+            return 0.0
+
+        def capabilities(self):
+            return ProviderCaps()
+
+    provider = SlowProvider()
+    runtime = NexusRuntime(router=AdaptiveRouter([provider]))
+    mission_id = await runtime.accept(Mission(
+        objective="finish quickly", constraints={"deadline_seconds": 0.05},
+    ))
+    report = runtime.report(mission_id)
+    assert provider.started is True
+    assert report is not None and report.verdict == "FAIL"
+    assert report.guard_events[0]["type"] == "deadline_exceeded"
+
+
+@pytest.mark.asyncio
+async def test_token_limit_stops_later_steps_after_actual_usage_is_recorded():
+    class TokenProvider:
+        name = "token-fixture"
+        stage = "small_model"
+
+        async def health(self):
+            return ProviderHealth(available=True)
+
+        async def complete(self, _request):
+            return CompletionResult("too many tokens", 0.99, input_tokens=4, output_tokens=2)
+
+        def cost_estimate(self, _request):
+            return 0.0
+
+        def capabilities(self):
+            return ProviderCaps()
+
+    runtime = NexusRuntime(router=AdaptiveRouter([TokenProvider()]))
+    mission_id = await runtime.accept(Mission(
+        objective="bounded tokens",
+        constraints={"max_tokens": 5, "plan": [
+            {"id": "first", "kind": "generate"},
+            {"id": "second", "kind": "generate"},
+        ]},
+    ))
+    report = runtime.report(mission_id)
+    assert report is not None and report.verdict == "FAIL"
+    assert report.tokens_used == 6
+    assert report.iterations == 1
+    assert report.guard_events[0]["type"] == "token_limit"
 
 
 @pytest.mark.asyncio
