@@ -44,6 +44,24 @@ A mission's `constraints.budget_usd` is checked before provider calls. Estimated
 
 A persisted mission found in `in_progress` after restart is not automatically replayed. It is marked `abandoned`, any stale `PASS` report is replaced by an honest interruption `FAIL`, and `mission_interrupted` is appended to the journal. Automatic resume remains disabled until deterministic replay and idempotency are proven.
 
+## Reproducible tests
+
+Install the project and test dependencies in a clean environment with:
+
+```bash
+python3 -m venv /tmp/ciel-venv
+/tmp/ciel-venv/bin/python -m pip install -e '.[test]'
+/tmp/ciel-venv/bin/python -m pytest -q
+```
+
+The ordinary unit and integration tests run without PostgreSQL. The live
+PostgreSQL restore test is explicitly skipped when `NEXUS_DATABASE_URL` is not
+set; it never fails accidentally with a `KeyError`. To run it, start a
+PostgreSQL instance, apply `alembic upgrade head`, set
+`NEXUS_DATABASE_URL`, and run `tests/test_phase2_postgres.py` and
+`tests/test_phase2_sigkill_gate.py`. CI provisions this service and therefore
+must remain the authoritative evidence for the live persistence gate.
+
 ## Still required before calling CIEL finalized
 
 - complete mission compiler/planner and multi-step execution loop;

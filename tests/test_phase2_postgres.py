@@ -10,6 +10,12 @@ from nexus.router import AdaptiveRouter
 from nexus.schemas import Mission
 
 
+POSTGRES_REQUIRED_REASON = (
+    "NEXUS_DATABASE_URL is required for the live PostgreSQL persistence test"
+)
+
+
+@pytest.mark.skipif(not os.environ.get("NEXUS_DATABASE_URL"), reason=POSTGRES_REQUIRED_REASON)
 @pytest.mark.asyncio
 async def test_postgres_store_restores_runtime_after_restart():
     store = PostgresSnapshotStore(os.environ["NEXUS_DATABASE_URL"], snapshot_key="ci-phase2")
