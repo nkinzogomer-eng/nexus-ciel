@@ -15,7 +15,7 @@ from nexus.schemas import Mission
 async def test_mission_is_served_by_the_cheapest_level_end_to_end():
     router = AdaptiveRouter([SecondaryProvider(), LocalProvider(confidence=0.85)])
     runtime = NexusRuntime(router=router)
-    mission_id = await runtime.accept(Mission(objective="summarise the sprint"))
+    mission_id = await runtime.accept(Mission(objective="summarise the sprint", constraints={"verification": {"mode": "contains_all", "needles": ["local:"]}}))
 
     report = runtime.report(mission_id)
     state = runtime.state_graph.get(UUID(mission_id))
@@ -35,7 +35,7 @@ async def test_mission_escalates_and_reports_the_real_cost():
         [LocalProvider(confidence=0.10), SecondaryProvider(confidence=0.95, cost_usd=0.02)]
     )
     runtime = NexusRuntime(router=router)
-    mission_id = await runtime.accept(Mission(objective="hard problem"))
+    mission_id = await runtime.accept(Mission(objective="hard problem", constraints={"verification": {"mode": "contains_all", "needles": ["secondary:"]}}))
 
     report = runtime.report(mission_id)
     assert report is not None
@@ -49,7 +49,7 @@ async def test_mission_escalates_and_reports_the_real_cost():
 async def test_unroutable_mission_fails_without_looping():
     router = AdaptiveRouter([LocalProvider(confidence=0.10), SecondaryProvider(confidence=0.20)])
     runtime = NexusRuntime(router=router)
-    mission_id = await runtime.accept(Mission(objective="impossible"))
+    mission_id = await runtime.accept(Mission(objective="impossible", constraints={"verification": {"mode": "contains_all", "needles": ["never-present"]}}))
 
     report = runtime.report(mission_id)
     state = runtime.state_graph.get(UUID(mission_id))
@@ -65,7 +65,7 @@ async def test_unroutable_mission_fails_without_looping():
 async def test_report_and_journal_are_json_serialisable():
     router = AdaptiveRouter([LocalProvider(confidence=0.85)])
     runtime = NexusRuntime(router=router)
-    mission_id = await runtime.accept(Mission(objective="serialise me"))
+    mission_id = await runtime.accept(Mission(objective="serialise me", constraints={"verification": {"mode": "contains_all", "needles": ["local:"]}}))
     report = runtime.report(mission_id)
     assert report is not None
     json.dumps(report.model_dump(mode="json"))
@@ -88,5 +88,5 @@ async def test_demo_entrypoint_runs_and_passes():
     out = await run("demo objective", local_confidence=0.85, local_available=True)
     assert out["verdict"] == "PASS"
     assert out["journal_chain_valid"] is True
-    assert out["events"] == ["MissionAccepted", "MissionValidated"]
+    assert out["events"] == ["MissionAccepted", "MissionCompleted"]
     assert out["trace"][-1]["stage"] == "small_model"

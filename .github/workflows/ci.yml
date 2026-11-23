@@ -48,6 +48,10 @@ jobs:
         run: pytest -vv -x
       - name: End-to-end smoke run
         run: python -m nexus.demo "ci smoke mission"
+      - name: Docker Compose persistence across full stack restart
+        env:
+          POSTGRES_PORT: "55432"
+        run: bash scripts/compose_persistence_smoke.sh
       - name: Unroutable path must fail cleanly
         run: |
           if python -m nexus.demo "ci unroutable mission" --local-confidence 0.1 --secondary-confidence 0.2; then

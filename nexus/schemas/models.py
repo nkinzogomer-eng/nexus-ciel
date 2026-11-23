@@ -32,7 +32,7 @@ class Event(BaseModel):
 class MissionState(BaseModel):
     mission_id: UUID
     objective: str
-    status: Literal["planned", "in_progress", "validated", "abandoned"] = "planned"
+    status: Literal["planned", "in_progress", "validated", "partial", "abandoned"] = "planned"
     iterations: int = 0
     resumable_after_crash: bool = False
 
@@ -44,6 +44,7 @@ class Report(BaseModel):
     objective: str
     summary: str
     iterations: int
+    output: str | None = None
     cost_usd: float = 0.0
     duration_s: float = 0.0
     actions: list[dict[str, Any]] = Field(default_factory=list)
