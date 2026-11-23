@@ -2,7 +2,8 @@
 
 ## Verdict
 
-**Foundation-Ready partiel, pas Cognitive-Engine-Ready.**
+**Foundation-Ready partiel ; Plan/Step-ready dans le périmètre Phase 2 ; pas
+Cognitive-Engine-Ready ni Tool-ready.**
 
 La base PR #10 est suffisamment structurée pour continuer le durcissement de
 la persistance, des contrats et de la sécurité. Elle n’est pas prête à annoncer
@@ -19,10 +20,13 @@ une autonomie cognitive ou à exécuter des outils externes.
 - persistance snapshot PostgreSQL ;
 - abandon explicite après crash ;
 - CI PostgreSQL/Compose sur la PR #10.
+- Plan/Step déterministe : versions, DAG, transitions, pré/postconditions,
+  budgets, journal et restauration ; preuves dans `tests/test_plan_engine.py`.
 
 ## Non prêt
 
-- planner et plan multiétapes ;
+- planner génératif ou stratégique ; le Plan/Step déterministe borné est livré,
+  mais sans décomposition LLM ni stratégie corrective ;
 - action executor et Tool Registry effectif ;
 - observation des effets externes ;
 - stratégie corrective ;

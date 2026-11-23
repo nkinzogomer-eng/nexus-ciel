@@ -1,7 +1,9 @@
 # Architecture cible du moteur cognitif CIEL
 
-**Statut :** conception Foundation Hardening, non implémentée.  
-**Base de référence :** PR #10 `322bfd3`; Memory Core `d2aa828` reste un prototype séparé.
+**Statut :** cible globale ; sous-ensemble Plan/Step déterministe livré en
+Phase 2.
+**Base de référence :** hardening `74a8258`; PR #10 `322bfd3` et Memory Core
+`d2aa828` restent inchangés et séparés.
 
 ## Principes
 
@@ -49,11 +51,19 @@ proposition non autorisée jusqu’à validation déterministe.
 
 ### Plan / Step
 
-Le plan est un graphe acyclique versionné. Une étape possède un identifiant
+Le plan est un graphe acyclique versionné. Cette partie est implémentée par
+`nexus.planning.PlanEngine`, sans appel LLM, réseau, fichier métier ou outil.
+Une étape possède un identifiant
 stable, une clé d’idempotence, des entrées référencées, des préconditions, une
 action autorisée, des observations attendues, une postcondition, un budget
 restant et une politique de retry. Une étape ne peut être `succeeded` qu’après
 observation et vérification.
+
+La Phase 2 livre la création, la validation, la révision optimiste, les
+dépendances DAG, les transitions explicites, les conditions déterministes, les
+budgets, le journal de progression et la restauration des versions via le
+snapshot du runtime. `action_ref` reste déclaratif : aucune action externe
+n’est invoquée par ce composant.
 
 ### Strategy Engine
 

@@ -1,7 +1,8 @@
 # Contrats techniques du moteur cognitif CIEL
 
-Ces contrats sont une spécification de préparation. Ils ne déclarent pas les
-composants comme implémentés.
+Ces contrats distinguent la cible complète du sous-ensemble effectivement livré.
+La Phase 2 implémente uniquement le Plan/Step Engine déterministe décrit
+ci-dessous ; elle n'implémente ni l'exécution d'outils ni l'autonomie cognitive.
 
 ## Règles communes
 
@@ -35,8 +36,17 @@ Step {
 }
 ```
 
-Transitions autorisées : `planned -> ready -> running -> observed -> verified`,
-avec sorties `failed`, `blocked`, `abandoned` et `human_review`.
+Transitions de step implémentées : `planned -> ready -> running -> observed ->
+verified`, avec sorties `failed`, `blocked` et `abandoned`. Une transition non
+présente dans la table est refusée. Les transitions de plan implémentées sont
+`draft -> ready -> running -> succeeded`, avec `failed` et `invalid` comme
+sorties contrôlées ; un plan réussi est immuable.
+
+Les dépendances forment un DAG validé avant création ou révision. Les
+préconditions et postconditions sont évaluées uniquement par les opérateurs
+déterministes `equals`, `not_equals` et `exists`. Chaque révision incrémente une
+version, conserve les versions précédentes et exige `expected_version` pour
+éviter l'écrasement concurrent (optimistic concurrency).
 
 ## Strategy Engine
 
@@ -90,10 +100,10 @@ provenance, fraîcheur, portée et contradictions ; il ne donne aucune autorité
 
 ## Mission Ledger
 
-Événements minimaux : `mission_accepted`, `plan_created`, `step_ready`,
-`policy_decision`, `action_requested`, `action_completed`, `observation_added`,
-`verification_completed`, `strategy_revised`, `human_approval_requested`,
-`mission_interrupted`, `mission_completed`.
+Événements implémentés pour cette phase : `plan_created`, `plan_validated`,
+`plan_revised`, `step_ready`, `step_started`, `observation_added`,
+`step_verified`, `step_verification_failed` et `step_failed`. Ils sont ajoutés
+au journal chaîné et inclus dans le snapshot persistant.
 
 Chaque événement contient `event_id`, `mission_id`, `plan_id`, `step_id` si
 applicable, `causation_id`, `correlation_id`, `schema_version`, timestamp,
@@ -113,9 +123,10 @@ clé d’idempotence est conservée. `continue` exige une postcondition vérifi�
 
 ## Budget Manager
 
-Réservation avant action, réconciliation après action, refus si budget,
-deadline, tokens, étapes ou temps sont épuisés. Les coûts estimés et réels
-sont conservés séparément dans le ledger.
+Le Plan/Step Engine refuse la création si la somme des budgets d'étapes dépasse
+le budget du plan et refuse le démarrage ou l'observation si le coût estimé/réel
+dépasserait le budget de l'étape ou du plan. Les coûts réels sont conservés par
+étape. Les deadlines, tokens, retries et temps mur restent hors périmètre.
 
 ## Policy / Safety
 
