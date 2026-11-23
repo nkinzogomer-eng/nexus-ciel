@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 
 from nexus.bus import AsyncEventBus
+from nexus.cognitive import CognitiveEngine
 from nexus.planning import PlanEngine
 from nexus.schemas import Event, Mission, Report
 
@@ -25,6 +26,7 @@ class NexusRuntime:
         self.state_graph = StateGraph()
         self.journal = MissionJournal()
         self.plan_engine = PlanEngine(journal=self.journal)
+        self.cognitive_engine = CognitiveEngine(plan_engine=self.plan_engine, journal=self.journal)
         self.registry = CapabilityRegistry()
         self.reports: dict[str, Report] = {}
         self.router = router

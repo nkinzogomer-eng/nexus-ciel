@@ -49,6 +49,15 @@ les dépendances, les préconditions, les postconditions, les risques et les
 critères de terminaison. Toute proposition provenant d’un LLM est traitée comme
 proposition non autorisée jusqu’à validation déterministe.
 
+### Cognitive Engine initial
+
+Le noyau Phase 3 sépare `GoalUnderstanding`, `MissionCompiler`,
+`StrategyEngine`, `CognitiveDecisionEngine` et la boucle d’observation. Il
+compile un objectif structuré, compare des candidates, choisit avec une clé
+stable, crée un plan, enregistre les observations, détecte les divergences et
+déclenche un replanning contrôlé. Une recommandation LLM est une donnée
+consultative hachée ; elle ne possède aucune autorité d’état.
+
 ### Plan / Step
 
 Le plan est un graphe acyclique versionné. Cette partie est implémentée par
@@ -154,3 +163,8 @@ tous les effets. Il ne rejoue jamais automatiquement une action dont l’effet
 est incertain. Une reprise contrôlée exige : clé d’idempotence, préconditions
 valides, budget restant, policy compatible et outil réentrant. Sinon la mission
 est `abandoned` avec rapport `FAIL` et événement de recovery.
+
+Le replanning Phase 3 conserve les étapes vérifiées, remplace le chemin en
+échec par une correction versionnée et interdit le replay automatique. La
+concurrence entre instances indépendantes reste un gate : le store PostgreSQL
+Phase 2 n’a pas encore de contrôle CAS.

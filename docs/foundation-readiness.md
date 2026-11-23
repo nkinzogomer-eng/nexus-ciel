@@ -2,8 +2,8 @@
 
 ## Verdict
 
-**Foundation-Ready partiel ; Plan/Step-ready dans le périmètre Phase 2 ; pas
-Cognitive-Engine-Ready ni Tool-ready.**
+**Foundation-Ready partiel ; Plan/Step-ready et Cognitive-Engine initial-ready
+dans les périmètres livrés ; pas Cognitive-Engine complet ni Tool-ready.**
 
 La base PR #10 est suffisamment structurée pour continuer le durcissement de
 la persistance, des contrats et de la sécurité. Elle n’est pas prête à annoncer
@@ -22,11 +22,14 @@ une autonomie cognitive ou à exécuter des outils externes.
 - CI PostgreSQL/Compose sur la PR #10.
 - Plan/Step déterministe : versions, DAG, transitions, pré/postconditions,
   budgets, journal et restauration ; preuves dans `tests/test_plan_engine.py`.
+- Cognitive Engine initial : objectif structuré, compilation, candidates,
+  choix reproductible, observation, divergence et replanning sans replay ;
+  preuves dans `tests/test_cognitive_engine.py`.
 
 ## Non prêt
 
-- planner génératif ou stratégique ; le Plan/Step déterministe borné est livré,
-  mais sans décomposition LLM ni stratégie corrective ;
+- compréhension libre, planner génératif et stratégie corrective riche ; le
+  noyau déterministe borné est livré, mais sans autonomie générale ;
 - action executor et Tool Registry effectif ;
 - observation des effets externes ;
 - stratégie corrective ;
@@ -35,6 +38,7 @@ une autonomie cognitive ou à exécuter des outils externes.
 - SkillCards promues par preuves runtime ;
 - approbation humaine et sécurité d’outils ;
 - expérience de valeur mesurée sans biais du LLM.
+- concurrence multi-instance avec CAS/locking distribué ;
 
 ## Gate avant première capacité outil
 

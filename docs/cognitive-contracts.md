@@ -1,8 +1,9 @@
 # Contrats techniques du moteur cognitif CIEL
 
 Ces contrats distinguent la cible complète du sous-ensemble effectivement livré.
-La Phase 2 implémente uniquement le Plan/Step Engine déterministe décrit
-ci-dessous ; elle n'implémente ni l'exécution d'outils ni l'autonomie cognitive.
+La Phase 3 ajoute un noyau cognitif déterministe et persistant, sans exécution
+d'outils. Les LLM peuvent fournir un conseil non autoritatif ; ils ne modifient
+jamais directement l'état interne.
 
 ## Règles communes
 
@@ -13,6 +14,12 @@ ci-dessous ; elle n'implémente ni l'exécution d'outils ni l'autonomie cognitiv
 - `PASS` nécessite une preuve indépendante ; `PARTIAL` signifie résultat insuffisamment prouvé.
 
 ## Goal / Mission
+
+`GoalUnderstanding` sépare explicitement objectif, résultats attendus,
+contraintes, critères, limites, faits connus, inconnues et hypothèses
+confiancées. Une hypothèse n'est jamais copiée dans les faits vérifiés. Le
+`MissionCompiler` refuse les objectifs incohérents ou les informations
+obligatoires manquantes et produit des sous-objectifs et dépendances bornés.
 
 ```text
 Mission {
@@ -50,6 +57,16 @@ version, conserve les versions précédentes et exige `expected_version` pour
 
 ## Strategy Engine
 
+`StrategyCandidate` contient étapes, préconditions, coûts, risques, avantages,
+limites et critères. `StrategyEngine` compare les candidates par score, coût et
+nom avec une clé de tri stable. `CognitiveDecisionEngine` conserve la raison du
+choix ; une recommandation LLM est seulement hachée comme conseil et ne peut
+pas sélectionner ni muter l'état seule.
+
+Le runtime supporte `CORE_ONLY` (aucun conseil LLM consommé) et `AI_ENABLED`
+(conseil facultatif, toujours non autoritatif). Une mission structurée simple
+reste exécutable logiquement en `CORE_ONLY`.
+
 Entrée : mission, observations, mémoire consultative et policy.  
 Sortie : `StrategyProposal` versionnée avec justification, étapes affectées,
 risques et coût estimé.  
@@ -75,6 +92,10 @@ ActionResult {
 Un `effect_state=unknown` interdit le replay automatique.
 
 ## Observation / Verification
+
+Le cycle initial est `PLAN -> DECIDE -> OBSERVE -> VERIFY -> ADAPT -> RECORD`.
+Une observation absente ne produit pas de succès. Une divergence produit un
+résultat d'échec et une décision de révision explicite.
 
 ```text
 Observation {
@@ -110,6 +131,10 @@ applicable, `causation_id`, `correlation_id`, `schema_version`, timestamp,
 acteur, payload digest et chaîne précédente.
 
 ## Recovery Manager
+
+`ControlledReplanner` crée une nouvelle version après échec, conserve les
+étapes vérifiées et génère une étape de correction avec une nouvelle clé
+d'idempotence. Il ne rejoue aucune action précédente.
 
 ```text
 RecoveryDecision {

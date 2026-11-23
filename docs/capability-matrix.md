@@ -15,8 +15,13 @@ Base vérifiée : hardening `74a8258`, parent PR #10 `322bfd3`, Memory Core
 | Abandon après crash | Disponible | gate SIGKILL CI | Reprise sûre non implémentée |
 | Outils exécutables | Absent | aucun `ActionExecutor` | Permissions/sandbox/postconditions |
 | Plan/Step Engine déterministe | Disponible dans périmètre Phase 2 | `nexus/planning`, `tests/test_plan_engine.py`, 78 tests verts | Pas de planner LLM ni d’exécution |
+| Goal Understanding / Mission Compiler | Disponible dans périmètre Phase 3 | `nexus/cognitive`, `test_simple_goal_compiles_into_mission` | Pas de compréhension libre non structurée |
+| Strategy Engine déterministe | Disponible dans périmètre Phase 3 | comparaison stable de deux candidates, tests de budget | Pas d’optimisation générale ni fournisseur requis |
+| Cognitive Decision Engine | Disponible dans périmètre Phase 3 | autorité `deterministic_core`, conseil LLM non mutatif | Policy complète et mémoire externe absentes |
+| Observation / Verification Loop | Disponible dans périmètre Phase 3 | succès, divergence, décision de révision, journal | Pas d’observation du monde réel |
+| Controlled Replanning | Disponible dans périmètre Phase 3 | nouvelle version, étapes vérifiées conservées, pas de replay | CAS multi-instance non résolu |
 | Observation Engine | Absent | aucune observation d’effet | Résultat fournisseur non observation métier |
-| Strategy Engine | Absent | aucune révision de stratégie | Correction bornée inexistante |
+| Strategy Engine avancé | Partiel | moteur déterministe Phase 3 | Analyse fournisseur et stratégie corrective riche absentes |
 | Human approval | Absent | aucun endpoint/contrat | Frontière d’autorité à construire |
 | CORE_ONLY / sans LLM | Partiel, Plan/Step prouvé | PlanEngine sans appel externe, tests A–H | Mission déterministe complète absente |
 | Memory Core | Prototype | modèles/repository in-memory | Pas PostgreSQL, runtime, restart |

@@ -7,6 +7,7 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from nexus.core import NexusRuntime
+from nexus.cognitive import CognitiveEngine
 from nexus.core.capability_registry import CapabilityRegistry
 from nexus.core.mission_journal import JournalEntry, MissionJournal
 from nexus.core.state_graph import StateGraph
@@ -117,8 +118,16 @@ class PersistentRuntime(NexusRuntime):
         self._validate_snapshot(snapshot)
         self.state_graph = PersistentStateGraph(self._load_states(snapshot), self._flush)
         self.journal = PersistentMissionJournal(self._load_entries(snapshot), self._flush)
+        if not self.journal.verify_chain():
+            raise ValueError("invalid mission journal chain in runtime snapshot")
         self.plan_engine = PlanEngine.from_snapshot(
             snapshot.get("plans", []), journal=self.journal, on_change=self._flush
+        )
+        self.cognitive_engine = CognitiveEngine.from_snapshot(
+            snapshot.get("cognitive", []),
+            plan_engine=self.plan_engine,
+            journal=self.journal,
+            on_change=self._flush,
         )
         self.registry = PersistentCapabilityRegistry(
             self._load_capabilities(snapshot),
@@ -144,6 +153,7 @@ class PersistentRuntime(NexusRuntime):
             "capabilities": [],
             "reports": {},
             "plans": [],
+            "cognitive": [],
         }
 
     def _load_states(self, snapshot: dict[str, Any]) -> list[MissionState]:
@@ -250,4 +260,5 @@ class PersistentRuntime(NexusRuntime):
                 for mission_id, report in self.reports.items()
             },
             "plans": self.plan_engine.snapshot(),
+            "cognitive": self.cognitive_engine.snapshot(),
         }
