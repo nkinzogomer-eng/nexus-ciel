@@ -1,0 +1,114 @@
+{
+  "costs": {
+    "budget": 6.0,
+    "consumed": 0.0,
+    "reserved": 0.0
+  },
+  "decisions": [
+    {
+      "kind": "REVISE",
+      "reason": "demonstration failure"
+    }
+  ],
+  "final_state": {
+    "correction": "planned",
+    "plan": "running"
+  },
+  "limits": [
+    "The correction itself still requires explicit observation and verification.",
+    "No automatic replay is performed."
+  ],
+  "mission": "cea1bb1a-9852-4789-bb6e-1b7da2b5aa68",
+  "objective": "recover after a failed first step without deleting the suffix",
+  "observations": [
+    {
+      "outcome": "success",
+      "step": "f35f7fbb-a4bd-4db2-b432-5d1395d50df6",
+      "verified": true
+    }
+  ],
+  "revisions": 1,
+  "steps": [
+    {
+      "action_ref": "cognitive.correction:3d6144da-90c4-4c3c-be1b-a213ae40f584",
+      "budget_usd": 4.0,
+      "depends_on": [],
+      "error": null,
+      "estimated_cost_usd": 4.0,
+      "idempotency_key": "correction:9eb08434-1b0f-4e5e-a8b4-eea30f11e7b8:1:3d6144da-90c4-4c3c-be1b-a213ae40f584",
+      "justification": "replace failed first step",
+      "observation": null,
+      "ordinal": 1,
+      "postconditions": [
+        {
+          "expected": true,
+          "key": "ok",
+          "operator": "equals"
+        }
+      ],
+      "preconditions": [],
+      "reserved_cost_usd": 0.0,
+      "spent_cost_usd": 0.0,
+      "status": "planned",
+      "step_id": "f35f7fbb-a4bd-4db2-b432-5d1395d50df6",
+      "title": "controlled-correction"
+    },
+    {
+      "action_ref": "demo.action.2",
+      "budget_usd": 1.0,
+      "depends_on": [
+        "f35f7fbb-a4bd-4db2-b432-5d1395d50df6"
+      ],
+      "error": null,
+      "estimated_cost_usd": 0.0,
+      "idempotency_key": "demo-2",
+      "justification": "declared by deterministic planner",
+      "observation": null,
+      "ordinal": 2,
+      "postconditions": [
+        {
+          "expected": true,
+          "key": "ok",
+          "operator": "equals"
+        }
+      ],
+      "preconditions": [],
+      "reserved_cost_usd": 0.0,
+      "spent_cost_usd": 0.0,
+      "status": "planned",
+      "step_id": "1f6f40de-37bb-4132-856c-f25ebf3e3d9f",
+      "title": "step-2"
+    },
+    {
+      "action_ref": "demo.action.3",
+      "budget_usd": 1.0,
+      "depends_on": [
+        "1f6f40de-37bb-4132-856c-f25ebf3e3d9f"
+      ],
+      "error": null,
+      "estimated_cost_usd": 0.0,
+      "idempotency_key": "demo-3",
+      "justification": "declared by deterministic planner",
+      "observation": null,
+      "ordinal": 3,
+      "postconditions": [
+        {
+          "expected": true,
+          "key": "ok",
+          "operator": "equals"
+        }
+      ],
+      "preconditions": [],
+      "reserved_cost_usd": 0.0,
+      "spent_cost_usd": 0.0,
+      "status": "planned",
+      "step_id": "e6380ea4-c7f5-4f60-9e81-23b56c09d9e4",
+      "title": "step-3"
+    }
+  ],
+  "strategy": "controlled correction with preserved suffix",
+  "verifications": {
+    "failed_step_not_replayed": true,
+    "suffix_preserved": true
+  }
+}

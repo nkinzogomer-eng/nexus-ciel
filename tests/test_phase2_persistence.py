@@ -33,7 +33,7 @@ async def test_phase2_ephemeral_runtime_is_explicitly_not_resumable_after_crash(
 async def test_phase2_file_store_restores_completed_mission_after_restart(tmp_path):
     store = FileSnapshotStore(tmp_path / "runtime.json")
     runtime = PersistentRuntime(store, router=AdaptiveRouter([LocalProvider(confidence=0.90)]))
-    mission_id = await runtime.accept(Mission(objective="persist me"))
+    mission_id = await runtime.accept(Mission(objective="persist me", constraints={"verification": {"mode": "contains_all", "needles": ["local:"]}}))
 
     restarted = PersistentRuntime(store)
     state = restarted.state_graph.get(UUID(mission_id))

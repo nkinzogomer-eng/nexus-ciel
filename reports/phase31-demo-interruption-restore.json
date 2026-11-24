@@ -1,0 +1,57 @@
+{
+  "costs": {
+    "budget": 1.0,
+    "consumed": 0.0,
+    "reserved": 0.2
+  },
+  "decisions": [
+    {
+      "kind": "SUSPEND",
+      "reason": "running state requires explicit human or policy decision"
+    }
+  ],
+  "final_state": {
+    "plan": "running",
+    "step": "running"
+  },
+  "limits": [
+    "Recovery policy is controlled_abandon for in-progress missions; this isolated plan remains running and cannot be started twice.",
+    "Distributed PostgreSQL multi-writer CAS remains a documented blocker."
+  ],
+  "mission": "425e833a-5989-40d5-a4dc-cbc98be65f19",
+  "objective": "restore durable state without replaying an uncertain running action",
+  "observations": [],
+  "revisions": 0,
+  "steps": [
+    {
+      "action_ref": "demo.action",
+      "budget_usd": 1.0,
+      "depends_on": [],
+      "error": null,
+      "estimated_cost_usd": 0.2,
+      "idempotency_key": "demo-interrupt",
+      "justification": "declared by deterministic planner",
+      "observation": null,
+      "ordinal": 1,
+      "postconditions": [
+        {
+          "expected": true,
+          "key": "ok",
+          "operator": "equals"
+        }
+      ],
+      "preconditions": [],
+      "reserved_cost_usd": 0.2,
+      "spent_cost_usd": 0.0,
+      "status": "running",
+      "step_id": "76f52cef-6a1f-401e-9403-dc5e8f5458ce",
+      "title": "interruptible"
+    }
+  ],
+  "strategy": "controlled recovery / no automatic resume",
+  "verifications": {
+    "journal_chain_valid": true,
+    "replay_blocked": true,
+    "snapshot_restored": true
+  }
+}
