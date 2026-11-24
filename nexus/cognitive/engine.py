@@ -21,6 +21,7 @@ from .models import (
     CompiledMission,
     GoalUnderstanding,
     Hypothesis,
+    MissingInformation,
     ObservationAssessment,
     StrategyCandidate,
     StrategySelection,
@@ -53,6 +54,13 @@ class GoalUnderstandingEngine:
             raise MissionCompilationError("expected results must not be blank")
         if any(not criterion.strip() for criterion in goal.success_criteria):
             raise MissionCompilationError("success criteria must not be blank")
+        if len(set(goal.expected_results)) != len(goal.expected_results):
+            raise MissionCompilationError("expected results must be unique")
+        if float(goal.constraints.get("budget_usd", 0.0)) < 0:
+            raise MissionCompilationError("budget constraint must be non-negative")
+        forbidden = set(goal.constraints.get("forbidden_results", []))
+        if forbidden.intersection(goal.expected_results):
+            raise MissionCompilationError("constraints forbid an expected result")
         if goal.confidence < 0.5 and not goal.hypotheses:
             raise MissionCompilationError("low-confidence goal requires explicit hypotheses")
         return goal
@@ -65,12 +73,34 @@ class MissionCompiler:
         goal = GoalUnderstandingEngine.validate(goal)
         subgoals = list(goal.expected_results)
         dependencies = {subgoal: subgoals[:index] for index, subgoal in enumerate(subgoals)}
-        missing = list(dict.fromkeys(goal.unknowns))
-        if goal.constraints.get("required_information"):
-            missing.extend(str(item) for item in goal.constraints["required_information"])
-        missing = list(dict.fromkeys(item for item in missing if item.strip()))
-        if goal.constraints.get("require_complete_information") and missing:
-            raise MissionCompilationError(f"mission is missing information: {missing}")
+        details: list[MissingInformation] = []
+        for item in goal.unknowns:
+            if item not in goal.known_facts:
+                details.append(
+                    MissingInformation(
+                        name=item,
+                        classification="non_blocking",
+                        reason="unknown but not declared indispensable",
+                    )
+                )
+
+        for item in goal.constraints.get("required_information", []):
+            if isinstance(item, dict):
+                name = str(item.get("name", "")).strip()
+                classification = item.get("classification", "blocking")
+                reason = str(item.get("reason", "required by mission constraints"))
+            else:
+                name = str(item).strip()
+                classification = "blocking"
+                reason = "required by mission constraints"
+            if name and name not in goal.known_facts:
+                details.append(MissingInformation(name=name, classification=classification, reason=reason))
+        unique_details = {item.name: item for item in details}
+        details = list(unique_details.values())
+        missing = list(unique_details)
+        blocking = [item.name for item in details if item.classification == "blocking"]
+        if goal.constraints.get("require_complete_information") and blocking:
+            raise MissionCompilationError(f"mission is missing blocking information: {blocking}")
         return CompiledMission(
             objective=goal.objective,
             expected_results=subgoals,
@@ -79,6 +109,7 @@ class MissionCompiler:
             constraints=dict(goal.constraints),
             success_criteria=list(goal.success_criteria),
             missing_information=missing,
+            missing_information_details=details,
             assumptions=list(goal.hypotheses),
             confidence=goal.confidence,
         )
@@ -88,41 +119,104 @@ class StrategyEngine:
     """Generate and compare strategies without a model or external effect."""
 
     def propose(self, mission: CompiledMission) -> list[StrategyCandidate]:
+        dependencies = dict(mission.dependencies)
+        blocking = [
+            item.name
+            for item in mission.missing_information_details
+            if item.classification == "blocking"
+        ]
         return [
             StrategyCandidate(
                 name="direct-bounded",
                 objective=mission.objective,
                 planned_steps=list(mission.subgoals),
-                preconditions=list(mission.missing_information),
+                dependencies=dependencies,
+                preconditions=blocking,
                 estimated_cost_usd=round(max(len(mission.subgoals), 1) * 0.5, 10),
+                estimated_duration_s=float(max(len(mission.subgoals), 1) * 60),
                 risks=["limited correction path"],
                 advantages=["shortest deterministic path"],
                 limits=["requires complete observations"],
                 success_criteria=list(mission.success_criteria),
                 score=1.0,
+                risk_level=0.5,
+                uncertainty=0.3,
+                required_information=blocking,
+                score_justification=["fewer steps", "higher declared correction risk"],
             ),
             StrategyCandidate(
                 name="staged-verified",
                 objective=mission.objective,
                 planned_steps=[f"verify:{item}" for item in mission.subgoals],
-                preconditions=list(mission.missing_information),
+                dependencies=dependencies,
+                preconditions=blocking,
                 estimated_cost_usd=round(max(len(mission.subgoals), 1) * 0.75, 10),
+                estimated_duration_s=float(max(len(mission.subgoals), 1) * 90),
                 risks=["higher declared cost"],
                 advantages=["explicit verification boundary", "safer correction point"],
                 limits=["requires an observation per stage"],
                 success_criteria=list(mission.success_criteria),
                 score=1.2,
+                risk_level=0.2,
+                uncertainty=0.1,
+                required_information=blocking,
+                score_justification=["stronger verification", "lower uncertainty"],
+            ),
+            StrategyCandidate(
+                name="cost-minimal-checkpointed",
+                objective=mission.objective,
+                planned_steps=[f"checkpoint:{item}" for item in mission.subgoals],
+                dependencies=dependencies,
+                preconditions=blocking,
+                estimated_cost_usd=round(max(len(mission.subgoals), 1) * 0.25, 10),
+                estimated_duration_s=float(max(len(mission.subgoals), 1) * 120),
+                risks=["slower progress", "higher uncertainty"],
+                advantages=["lowest declared cost", "reversible checkpoints"],
+                limits=["not suitable for urgent deadlines"],
+                success_criteria=list(mission.success_criteria),
+                score=0.85,
+                risk_level=0.7,
+                uncertainty=0.5,
+                required_information=blocking,
+                score_justification=["lowest cost", "penalized for risk and duration"],
             ),
         ]
 
-    def choose(self, candidates: Iterable[StrategyCandidate], *, budget_usd: float) -> StrategySelection:
+    def choose(
+        self,
+        candidates: Iterable[StrategyCandidate],
+        *,
+        budget_usd: float,
+        available_information: set[str] | None = None,
+        constraints: dict[str, Any] | None = None,
+    ) -> StrategySelection:
         candidates = list(candidates)
-        eligible = [candidate for candidate in candidates if candidate.estimated_cost_usd <= budget_usd]
+        available = available_information or set()
+        constraints = constraints or {}
+        rejected_reasons: dict[UUID, str] = {}
+        eligible = []
+        for candidate in candidates:
+            if candidate.estimated_cost_usd > budget_usd:
+                rejected_reasons[candidate.strategy_id] = "estimated cost exceeds budget"
+            elif candidate.constraint_violations:
+                rejected_reasons[candidate.strategy_id] = "candidate violates mandatory constraints"
+            elif set(candidate.required_information) - available:
+                rejected_reasons[candidate.strategy_id] = "required information is unavailable"
+            elif constraints.get("require_reversible") and not candidate.reversible:
+                rejected_reasons[candidate.strategy_id] = "candidate is not reversible"
+            else:
+                eligible.append(candidate)
         if not eligible:
-            raise StrategySelectionError("budget is insufficient for every strategy")
+            details = "; ".join(rejected_reasons.values()) or "no candidate satisfies constraints"
+            raise StrategySelectionError(f"no strategy is acceptable: {details}")
         ordered = sorted(
             eligible,
-            key=lambda item: (-item.score, item.estimated_cost_usd, item.name, str(item.strategy_id)),
+            key=lambda item: (
+                -(item.score - item.risk_level * 0.2 - item.uncertainty * 0.2),
+                item.estimated_cost_usd,
+                item.name,
+                str(item.strategy_id),
+            ),
         )
         winner = ordered[0]
         rejected = [candidate.strategy_id for candidate in candidates if candidate.strategy_id != winner.strategy_id]
@@ -134,8 +228,9 @@ class StrategyEngine:
             strategy_id=winner.strategy_id,
             candidate_name=winner.name,
             reasons=[
-                f"highest deterministic score ({winner.score})",
+                f"highest deterministic adjusted score ({winner.score - winner.risk_level * 0.2 - winner.uncertainty * 0.2:.3f})",
                 f"estimated cost {winner.estimated_cost_usd} <= budget {budget_usd}",
+                *winner.score_justification,
             ],
             rejected_candidates=rejected,
             deterministic_key=deterministic_key,
@@ -151,9 +246,16 @@ class CognitiveDecisionEngine:
         *,
         budget_usd: float,
         llm_recommendation: str | None = None,
+        available_information: set[str] | None = None,
+        constraints: dict[str, Any] | None = None,
     ) -> tuple[StrategySelection, CognitiveDecision]:
         candidates = list(candidates)
-        selection = StrategyEngine().choose(candidates, budget_usd=budget_usd)
+        selection = StrategyEngine().choose(
+            candidates,
+            budget_usd=budget_usd,
+            available_information=available_information,
+            constraints=constraints,
+        )
         digest = None
         if llm_recommendation is not None:
             digest = hashlib.sha256(llm_recommendation.encode()).hexdigest()
@@ -174,8 +276,9 @@ class CognitiveDecisionEngine:
         *,
         expected: list[str],
         verified: bool,
+        outcome_override: Literal["success", "failure", "partial", "uncertain"] | None = None,
     ) -> tuple[ObservationAssessment, CognitiveDecision]:
-        outcome = "success" if verified else "failure"
+        outcome = outcome_override or ("success" if verified else "failure")
         divergence = [] if verified else ["observed data did not satisfy deterministic postconditions"]
         assessment = ObservationAssessment(
             step_id=step_id,
@@ -186,9 +289,9 @@ class CognitiveDecisionEngine:
             evidence=["step observation"],
         )
         decision = CognitiveDecision(
-            kind="keep" if verified else "revise",
+            kind="keep" if outcome == "success" else ("suspend" if outcome in {"partial", "uncertain"} else "revise"),
             subject_id=cycle_id,
-            reasons=["postconditions verified" if verified else "postconditions not verified"],
+            reasons=["postconditions verified" if outcome == "success" else f"observation outcome is {outcome}"],
             evidence=[str(assessment.observation_id)],
         )
         return assessment, decision
@@ -206,25 +309,65 @@ class ControlledReplanner:
         correction_title: str = "controlled-correction",
     ):
         current = plan_engine.get_plan(plan_id)
-        preserved = [step for step in current.steps if step.status == "verified"]
         failed = [step for step in current.steps if step.status == "failed"]
         if not failed:
             raise CognitiveEngineError("replanning requires a failed step")
-        remaining = round(current.budget_usd - sum(step.budget_usd for step in current.steps), 10)
+        failed_ids = {step.step_id for step in failed}
+        failed_target = failed[-1]
+        preserved = []
+        impacted_step_ids: set[UUID] = set()
+        for step in current.steps:
+            if step.step_id in failed_ids or step.status == "obsolete":
+                continue
+            budget = step.budget_usd
+            if step.status == "verified":
+                budget = step.spent_cost_usd
+            elif step.status == "uncertain":
+                budget = step.spent_cost_usd
+            dependencies = [dependency for dependency in step.depends_on if dependency not in failed_ids]
+            if any(dependency in failed_ids for dependency in step.depends_on):
+                impacted_step_ids.add(step.step_id)
+            status = step.status
+            preserved.append(
+                step.model_copy(
+                    update={
+                        "depends_on": dependencies,
+                        "status": "planned" if any(dependency in failed_ids for dependency in step.depends_on) else status,
+                        "budget_usd": budget,
+                        "reserved_cost_usd": 0.0,
+                    }
+                )
+            )
+        future_budget = sum(
+            step.budget_usd for step in preserved if step.status in {"planned", "ready"}
+        )
+        remaining = round(current.budget_usd - current.total_spent_cost_usd - future_budget, 10)
         if remaining <= 0:
             raise CognitiveEngineError("no remaining budget for controlled correction")
         correction = Step(
-            ordinal=max(step.ordinal for step in current.steps) + 1,
+            ordinal=failed_target.ordinal,
             title=correction_title,
-            action_ref=f"cognitive.correction:{failed[-1].step_id}",
-            depends_on=[step.step_id for step in preserved[-1:]],
+            action_ref=f"cognitive.correction:{failed_target.step_id}",
+            depends_on=[
+                dependency
+                for dependency in failed_target.depends_on
+                if any(step.step_id == dependency and step.status == "verified" for step in preserved)
+            ],
             postconditions=[DeterministicCondition(key="ok", expected=True)],
-            idempotency_key=f"correction:{current.plan_id}:{current.version}:{failed[-1].step_id}",
+            idempotency_key=f"correction:{current.plan_id}:{current.version}:{failed_target.step_id}",
+            justification=reason,
             budget_usd=remaining,
+            estimated_cost_usd=remaining,
         )
+        rewritten = []
+        for step in preserved:
+            dependencies = list(step.depends_on)
+            if step.step_id in impacted_step_ids:
+                dependencies.append(correction.step_id)
+            rewritten.append(step.model_copy(update={"depends_on": list(dict.fromkeys(dependencies))}))
         return plan_engine.revise_plan(
             plan_id,
-            preserved + [correction],
+            sorted([*rewritten, correction], key=lambda step: step.ordinal),
             expected_version=current.version,
             rationale=reason,
             budget_usd=current.budget_usd,
@@ -267,6 +410,8 @@ class CognitiveEngine:
                 candidates,
                 budget_usd=float(budget),
                 llm_recommendation=llm_recommendation if self.mode == "AI_ENABLED" else None,
+                available_information=set(goal.known_facts),
+                constraints=mission.constraints,
             )
             chosen = next(candidate for candidate in candidates if candidate.strategy_id == selection.strategy_id)
             per_step = round(chosen.estimated_cost_usd / len(chosen.planned_steps), 10)
@@ -315,6 +460,7 @@ class CognitiveEngine:
         observation: dict[str, Any],
         *,
         actual_cost_usd: float = 0.0,
+        outcome: Literal["auto", "success", "failure", "partial", "uncertain"] = "auto",
     ) -> ObservationAssessment:
         with self._lock:
             cycle = self._cycles[cycle_id]
@@ -323,22 +469,33 @@ class CognitiveEngine:
             plan = self.plan_engine.record_observation(
                 cycle.plan_id, step_id, observation, actual_cost_usd=actual_cost_usd
             )
-            try:
-                self.plan_engine.verify_step(cycle.plan_id, step_id)
-                verified = True
-            except PostconditionNotMet:
-                verified = False
+            verified = False
+            if outcome in {"partial", "uncertain"}:
+                self.plan_engine.mark_step_uncertain(
+                    cycle.plan_id,
+                    step_id,
+                    f"observation classified as {outcome}; external verification required",
+                )
+            elif outcome == "failure":
+                self.plan_engine.fail_step(cycle.plan_id, step_id, "observation explicitly failed")
+            else:
+                try:
+                    self.plan_engine.verify_step(cycle.plan_id, step_id)
+                    verified = True
+                except PostconditionNotMet:
+                    verified = False
             assessment, decision = CognitiveDecisionEngine.assess_observation(
                 cycle_id, step_id, observation,
                 expected=[condition.key for condition in step.postconditions],
                 verified=verified,
+                outcome_override=None if outcome == "auto" else outcome,
             )
             updated = cycle.model_copy(
                 deep=True,
                 update={
                     "observations": [*cycle.observations, assessment],
                     "decisions": [*cycle.decisions, decision],
-                    "status": "succeeded" if verified and self.plan_engine.get_plan(cycle.plan_id).status == "succeeded" else ("failed" if not verified else "running"),
+                    "status": "succeeded" if verified and self.plan_engine.get_plan(cycle.plan_id).status == "succeeded" else ("suspended" if outcome in {"partial", "uncertain"} else ("failed" if not verified else "running")),
                     "updated_at": datetime.now(timezone.utc),
                 },
             )

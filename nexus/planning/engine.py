@@ -72,6 +72,8 @@ class PlanEngine:
         "failed": {"ready", "abandoned"},
         "blocked": {"ready", "abandoned"},
         "abandoned": set(),
+        "uncertain": {"abandoned"},
+        "obsolete": set(),
     }
 
     def __init__(
@@ -204,8 +206,18 @@ class PlanEngine:
             if step.status != "planned":
                 raise InvalidPlanTransition(f"step {step_id} cannot become ready from {step.status}")
             if not self._dependencies_verified(plan, step):
+                self._event(
+                    plan,
+                    "step_blocked",
+                    {"step_id": str(step_id), "reason": "dependencies are not verified"},
+                )
                 raise PreconditionNotMet(f"step {step_id} dependencies are not verified")
             if not self._conditions_pass(step.preconditions, facts):
+                self._event(
+                    plan,
+                    "step_blocked",
+                    {"step_id": str(step_id), "reason": "preconditions are not satisfied"},
+                )
                 raise PreconditionNotMet(f"step {step_id} preconditions are not satisfied")
             updated = self._with_step(plan, step.model_copy(update={"status": "ready"}))
             self._replace_current(updated)
@@ -226,11 +238,20 @@ class PlanEngine:
             step = self._step(plan, step_id)
             if step.status != "ready":
                 raise InvalidPlanTransition(f"step {step_id} cannot start from {step.status}")
-            if estimated_cost_usd < 0 or plan.total_spent_cost_usd + estimated_cost_usd > plan.budget_usd:
+            if estimated_cost_usd < 0 or plan.total_spent_cost_usd + plan.total_reserved_cost_usd + estimated_cost_usd > plan.budget_usd:
                 raise StepBudgetExceeded(f"plan budget exceeded before step {step_id}")
-            if estimated_cost_usd > step.budget_usd:
+            if step.spent_cost_usd + step.reserved_cost_usd + estimated_cost_usd > step.budget_usd:
                 raise StepBudgetExceeded(f"step budget exceeded before step {step_id}")
-            updated = self._with_step(plan, step.model_copy(update={"status": "running"}))
+            updated = self._with_step(
+                plan,
+                step.model_copy(
+                    update={
+                        "status": "running",
+                        "estimated_cost_usd": estimated_cost_usd,
+                        "reserved_cost_usd": estimated_cost_usd,
+                    }
+                ),
+            )
             if updated.status == "ready":
                 updated = updated.model_copy(update={"status": "running"})
             self._replace_current(updated)
@@ -252,13 +273,19 @@ class PlanEngine:
             step = self._step(plan, step_id)
             if step.status != "running":
                 raise InvalidPlanTransition(f"step {step_id} cannot be observed from {step.status}")
-            if actual_cost_usd < 0 or actual_cost_usd > step.budget_usd:
+            if actual_cost_usd < 0 or step.spent_cost_usd + actual_cost_usd > step.budget_usd:
                 raise StepBudgetExceeded(f"step budget exceeded after step {step_id}")
-            total = plan.total_spent_cost_usd + actual_cost_usd
+            total = plan.total_spent_cost_usd - step.spent_cost_usd + actual_cost_usd
+            total += plan.total_reserved_cost_usd - step.reserved_cost_usd
             if total > plan.budget_usd:
                 raise StepBudgetExceeded(f"plan budget exceeded after step {step_id}")
             updated_step = step.model_copy(
-                update={"status": "observed", "observation": dict(observation), "spent_cost_usd": actual_cost_usd}
+                update={
+                    "status": "observed",
+                    "observation": dict(observation),
+                    "spent_cost_usd": round(step.spent_cost_usd + actual_cost_usd, 10),
+                    "reserved_cost_usd": 0.0,
+                }
             )
             updated = self._with_step(plan, updated_step)
             self._replace_current(updated)
@@ -304,10 +331,37 @@ class PlanEngine:
             step = self._step(plan, step_id)
             if step.status not in {"ready", "running", "observed"}:
                 raise InvalidPlanTransition(f"step {step_id} cannot fail from {step.status}")
-            updated = self._with_step(plan, step.model_copy(update={"status": "failed", "error": reason}))
+            updated = self._with_step(
+                plan,
+                step.model_copy(update={"status": "failed", "error": reason, "reserved_cost_usd": 0.0}),
+            )
             updated = updated.model_copy(update={"status": "failed"})
             self._replace_current(updated)
             self._event(updated, "step_failed", {"step_id": str(step_id), "reason": reason})
+            self._changed()
+            return updated
+
+    def mark_step_uncertain(
+        self,
+        plan_id: UUID,
+        step_id: UUID,
+        reason: str,
+        *,
+        expected_version: int | None = None,
+    ) -> Plan:
+        if not reason.strip():
+            raise PlanEngineError("uncertainty reason must not be empty")
+        with self._lock:
+            plan = self._checked_current(plan_id, expected_version)
+            step = self._step(plan, step_id)
+            if step.status not in {"running", "observed"}:
+                raise InvalidPlanTransition(f"step {step_id} cannot become uncertain from {step.status}")
+            updated = self._with_step(
+                plan,
+                step.model_copy(update={"status": "uncertain", "error": reason, "reserved_cost_usd": 0.0}),
+            )
+            self._replace_current(updated)
+            self._event(updated, "step_uncertain", {"step_id": str(step_id), "reason": reason})
             self._changed()
             return updated
 
@@ -379,10 +433,10 @@ class PlanEngine:
         return all(condition.evaluate(facts) for condition in conditions)
 
     def _plan_status_after_step(self, plan: Plan) -> PlanStatus:
-        statuses = {step.status for step in plan.steps}
-        if statuses == {"verified"}:
+        active_statuses = {step.status for step in plan.steps if step.status != "obsolete"}
+        if active_statuses == {"verified"}:
             return "succeeded"
-        if "failed" in statuses:
+        if "failed" in active_statuses or "uncertain" in active_statuses:
             return "failed"
         if plan.status in {"draft", "ready"}:
             return "running"
@@ -407,6 +461,10 @@ class PlanEngine:
             raise PlanValidationError("every step requires an action_ref")
         if any(step.budget_usd < 0 for step in plan.steps):
             raise PlanValidationError("step budgets must be non-negative")
+        if any(step.spent_cost_usd + step.reserved_cost_usd > step.budget_usd for step in plan.steps):
+            raise PlanValidationError("step consumed and reserved costs exceed step budget")
+        if plan.total_spent_cost_usd + plan.total_reserved_cost_usd > plan.budget_usd:
+            raise PlanValidationError("consumed and reserved costs exceed plan budget")
         if sum(step.budget_usd for step in plan.steps) > plan.budget_usd:
             raise PlanValidationError("sum of step budgets exceeds plan budget")
         graph = {step.step_id: set(step.depends_on) for step in plan.steps}

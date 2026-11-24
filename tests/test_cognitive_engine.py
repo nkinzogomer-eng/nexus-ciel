@@ -40,7 +40,14 @@ def test_ambiguous_or_incomplete_goal_is_rejected():
     with pytest.raises(ValidationError):
         GoalUnderstanding(objective="", expected_results=[], success_criteria=[])
     with pytest.raises(MissionCompilationError):
-        MissionCompiler().compile(goal(unknowns=["source of truth"], constraints={"require_complete_information": True}))
+        MissionCompiler().compile(
+            goal(
+                constraints={
+                    "require_complete_information": True,
+                    "required_information": [{"name": "source of truth", "classification": "blocking"}],
+                }
+            )
+        )
 
 
 def test_two_strategies_are_compared_deterministically():
@@ -48,7 +55,7 @@ def test_two_strategies_are_compared_deterministically():
     candidates = StrategyEngine().propose(mission)
     selection_a = StrategyEngine().choose(candidates, budget_usd=5.0)
     selection_b = StrategyEngine().choose(candidates, budget_usd=5.0)
-    assert len(candidates) == 2
+    assert len(candidates) >= 3
     assert selection_a.strategy_id == selection_b.strategy_id
     assert selection_a.deterministic_key == selection_b.deterministic_key
 

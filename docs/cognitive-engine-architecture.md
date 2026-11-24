@@ -168,3 +168,20 @@ Le replanning Phase 3 conserve les étapes vérifiées, remplace le chemin en
 échec par une correction versionnée et interdit le replay automatique. La
 concurrence entre instances indépendantes reste un gate : le store PostgreSQL
 Phase 2 n’a pas encore de contrôle CAS.
+
+## Durcissement Phase 3.1
+
+`ControlledReplanner` conserve la préfixe vérifiée et le suffixe encore valide
+dans une nouvelle version ; les dépendances vers l’étape échouée sont
+redirigées vers une correction bornée. Les versions précédentes et les
+événements restent dans le snapshot et le journal chaîné.
+
+Les états `partial` et `uncertain` déclenchent une suspension et exigent une
+clarification ou une décision explicite : ils ne déclenchent jamais de replay.
+Les réservations de coût sont libérées lors de l’observation et deviennent du
+coût consommé. La restauration vérifie le schéma, la chaîne du journal, les
+versions contiguës et la cohérence cross-snapshot des plans et cycles.
+
+La politique `controlled_abandon` interdit la reprise automatique après
+interruption. La concurrence multi-writer PostgreSQL sans CAS reste un
+bloqueur explicite.

@@ -17,6 +17,8 @@ StepStatus = Literal[
     "failed",
     "blocked",
     "abandoned",
+    "uncertain",
+    "obsolete",
 ]
 PlanStatus = Literal["draft", "ready", "running", "succeeded", "failed", "invalid"]
 
@@ -48,7 +50,10 @@ class Step(BaseModel):
     preconditions: list[DeterministicCondition] = Field(default_factory=list)
     postconditions: list[DeterministicCondition] = Field(default_factory=list)
     idempotency_key: str = Field(min_length=1, max_length=256)
+    justification: str = Field(default="declared by deterministic planner", min_length=1, max_length=1000)
     budget_usd: float = Field(default=0.0, ge=0.0)
+    estimated_cost_usd: float = Field(default=0.0, ge=0.0)
+    reserved_cost_usd: float = Field(default=0.0, ge=0.0)
     status: StepStatus = "planned"
     observation: dict[str, Any] | None = None
     error: str | None = None
@@ -83,8 +88,13 @@ class Plan(BaseModel):
 
     @property
     def all_verified(self) -> bool:
-        return bool(self.steps) and all(step.status == "verified" for step in self.steps)
+        active = [step for step in self.steps if step.status != "obsolete"]
+        return bool(active) and all(step.status == "verified" for step in active)
 
     @property
     def total_spent_cost_usd(self) -> float:
         return round(sum(step.spent_cost_usd for step in self.steps), 10)
+
+    @property
+    def total_reserved_cost_usd(self) -> float:
+        return round(sum(step.reserved_cost_usd for step in self.steps), 10)

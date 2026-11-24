@@ -24,7 +24,11 @@ une autonomie cognitive ou à exécuter des outils externes.
   budgets, journal et restauration ; preuves dans `tests/test_plan_engine.py`.
 - Cognitive Engine initial : objectif structuré, compilation, candidates,
   choix reproductible, observation, divergence et replanning sans replay ;
-  preuves dans `tests/test_cognitive_engine.py`.
+  preuves dans `tests/test_cognitive_engine.py` et
+  `tests/test_phase31_hardening.py`.
+- Phase 3.1 : conservation des suffixes et dépendances, coûts estimé/réservé/
+  consommé, résultats partiels/incertains, persistance après révision et trois
+  démonstrations JSON reproductibles dans `scripts/phase31_demo_*.py`.
 
 ## Non prêt
 
@@ -39,6 +43,11 @@ une autonomie cognitive ou à exécuter des outils externes.
 - approbation humaine et sécurité d’outils ;
 - expérience de valeur mesurée sans biais du LLM.
 - concurrence multi-instance avec CAS/locking distribué ;
+
+Les 100 tests locaux sont verts. Deux tests PostgreSQL sont skip lorsqu’aucune
+`NEXUS_DATABASE_URL` n’est fournie ; cela ne constitue pas une preuve locale de
+la CI PostgreSQL/Compose. Le CAS multi-writer PostgreSQL reste donc un gate
+bloquant et le verdict demeure Foundation-Ready partiel.
 
 ## Gate avant première capacité outil
 

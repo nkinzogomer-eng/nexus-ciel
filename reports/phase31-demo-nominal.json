@@ -1,0 +1,135 @@
+{
+  "costs": {
+    "consumed": 0.1,
+    "estimated": 0.1,
+    "reserved": 0.0
+  },
+  "decisions": [
+    {
+      "authority": "deterministic_core",
+      "created_at": "2026-11-24T17:07:25.873872Z",
+      "decision_id": "51c292bd-b4f5-4dc9-b719-6f1e41735686",
+      "evidence": [
+        "deterministic candidate comparison"
+      ],
+      "kind": "select_strategy",
+      "llm_advice_digest": null,
+      "reasons": [
+        "highest deterministic adjusted score (1.140)",
+        "estimated cost 0.75 <= budget 5.0",
+        "stronger verification",
+        "lower uncertainty"
+      ],
+      "subject_id": "543a0087-3730-5e4c-8a13-c656067913ec"
+    },
+    {
+      "authority": "deterministic_core",
+      "created_at": "2026-11-24T17:07:25.874069Z",
+      "decision_id": "a6a31ee3-7332-4215-916f-451230b4173b",
+      "evidence": [
+        "b9cdb4b6-df86-410c-8072-063b933778c1"
+      ],
+      "kind": "keep",
+      "llm_advice_digest": null,
+      "reasons": [
+        "postconditions verified"
+      ],
+      "subject_id": "ab477c93-a676-46a6-97fd-4dff2da351b2"
+    }
+  ],
+  "final_state": {
+    "cycle": "succeeded",
+    "plan": "succeeded"
+  },
+  "limits": [
+    "No external action executor is involved.",
+    "PostgreSQL multi-writer CAS remains outside this demo."
+  ],
+  "mission": "5aa2755d-f5b5-4718-b92d-d93100b1cab7",
+  "objective": {
+    "confidence": 1.0,
+    "constraints": {
+      "budget_usd": 5.0
+    },
+    "expected_results": [
+      "verified result"
+    ],
+    "hypotheses": [],
+    "known_facts": {
+      "scope": "bounded"
+    },
+    "limits": [],
+    "objective": "prepare a bounded mission",
+    "success_criteria": [
+      "ok is observed"
+    ],
+    "unknowns": []
+  },
+  "observations": [
+    {
+      "created_at": "2026-11-24T17:07:25.874063Z",
+      "divergence": [],
+      "evidence": [
+        "step observation"
+      ],
+      "expected": [
+        "ok"
+      ],
+      "observation_id": "b9cdb4b6-df86-410c-8072-063b933778c1",
+      "observed": {
+        "ok": true
+      },
+      "outcome": "success",
+      "step_id": "f529ef32-176a-4055-80c8-4c0bf575f228"
+    }
+  ],
+  "revisions": 0,
+  "steps": [
+    {
+      "action_ref": "cognitive:543a0087-3730-5e4c-8a13-c656067913ec:1",
+      "budget_usd": 0.75,
+      "depends_on": [],
+      "error": null,
+      "estimated_cost_usd": 0.1,
+      "idempotency_key": "cognitive:5aa2755d-f5b5-4718-b92d-d93100b1cab7:543a0087-3730-5e4c-8a13-c656067913ec:1",
+      "justification": "declared by deterministic planner",
+      "observation": {
+        "ok": true
+      },
+      "ordinal": 1,
+      "postconditions": [
+        {
+          "expected": true,
+          "key": "ok",
+          "operator": "equals"
+        }
+      ],
+      "preconditions": [],
+      "reserved_cost_usd": 0.0,
+      "spent_cost_usd": 0.1,
+      "status": "verified",
+      "step_id": "f529ef32-176a-4055-80c8-4c0bf575f228",
+      "title": "verify:verified result"
+    }
+  ],
+  "strategy": {
+    "candidate_name": "staged-verified",
+    "deterministic_key": "staged-verified:1.2:0.75|direct-bounded:1.0:0.5|cost-minimal-checkpointed:0.85:0.25",
+    "reasons": [
+      "highest deterministic adjusted score (1.140)",
+      "estimated cost 0.75 <= budget 5.0",
+      "stronger verification",
+      "lower uncertainty"
+    ],
+    "rejected_candidates": [
+      "f5837890-91e1-556d-9daa-370e261ac055",
+      "42924230-6d11-5acd-b2ff-45ac5e7ded45"
+    ],
+    "selected_at": "2026-11-24T17:07:25.873854Z",
+    "strategy_id": "543a0087-3730-5e4c-8a13-c656067913ec"
+  },
+  "verifications": {
+    "all_steps_verified": true,
+    "core_only": true
+  }
+}

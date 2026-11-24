@@ -13,6 +13,12 @@ class Hypothesis(BaseModel):
     basis: list[str] = Field(default_factory=list)
 
 
+class MissingInformation(BaseModel):
+    name: str = Field(min_length=1)
+    classification: Literal["blocking", "non_blocking", "verifiable_later"]
+    reason: str = Field(min_length=1)
+
+
 class GoalUnderstanding(BaseModel):
     objective: str = Field(min_length=1, max_length=2000)
     expected_results: list[str] = Field(min_length=1)
@@ -34,6 +40,7 @@ class CompiledMission(BaseModel):
     constraints: dict[str, Any] = Field(default_factory=dict)
     success_criteria: list[str]
     missing_information: list[str] = Field(default_factory=list)
+    missing_information_details: list[MissingInformation] = Field(default_factory=list)
     assumptions: list[Hypothesis] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
 
@@ -47,13 +54,21 @@ class StrategyCandidate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     objective: str = Field(min_length=1)
     planned_steps: list[str] = Field(min_length=1)
+    dependencies: dict[str, list[str]] = Field(default_factory=dict)
     preconditions: list[str] = Field(default_factory=list)
     estimated_cost_usd: float = Field(default=0.0, ge=0.0)
+    estimated_duration_s: float | None = Field(default=None, ge=0.0)
     risks: list[str] = Field(default_factory=list)
     advantages: list[str] = Field(default_factory=list)
     limits: list[str] = Field(default_factory=list)
     success_criteria: list[str] = Field(default_factory=list)
     score: float = 0.0
+    uncertainty: float = Field(default=0.0, ge=0.0, le=1.0)
+    risk_level: float = Field(default=0.0, ge=0.0, le=1.0)
+    reversible: bool = True
+    required_information: list[str] = Field(default_factory=list)
+    constraint_violations: list[str] = Field(default_factory=list)
+    score_justification: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def stable_id(self) -> "StrategyCandidate":

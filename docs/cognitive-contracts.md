@@ -164,3 +164,23 @@ raison. La policy est immuable pendant une action.
 Doit exposer : `journal_valid`, `store_available`, `policy_version`,
 `providers_configured`, `memory_enabled`, `active_missions`, `unknown_effects`
 et les limites courantes. Le diagnostic ne modifie aucun état métier.
+
+## Garanties Phase 3.1
+
+Le compilateur distingue les informations `blocking`, `non_blocking` et
+`verifiable_later`. Les inconnues non bloquantes ne rejettent pas
+automatiquement l’objectif ; une information bloquante produit une erreur
+structurée. CORE_ONLY compare plusieurs stratégies déterministes et élimine
+celles qui dépassent le budget, violent une contrainte ou exigent une
+information indisponible.
+
+Les observations acceptées sont `success`, `failure`, `partial` et `uncertain`.
+Une observation partielle ou incertaine suspend la mission et rend l’étape non
+rejouable automatiquement. Les décisions sont `KEEP`, `REVISE`, `SUSPEND` et
+`ABANDON`. Les coûts estimé, réservé et consommé sont distincts.
+
+Une révision contrôlée crée une nouvelle version du plan, conserve les étapes
+vérifiées et futures encore valides, les dépendances, le budget restant, les
+critères de réussite et l’historique, puis redirige les dépendances invalidées
+vers une correction explicite. Une étape en cours, incertaine ou obsolète
+n’est jamais rejouée implicitement.
