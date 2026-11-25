@@ -7,6 +7,7 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from nexus.core import NexusRuntime
+from nexus.actions import ActionExecutor, ToolRegistry
 from nexus.cognitive import CognitiveEngine
 from nexus.core.capability_registry import CapabilityRegistry
 from nexus.core.mission_journal import JournalEntry, MissionJournal
@@ -123,9 +124,17 @@ class PersistentRuntime(NexusRuntime):
         self.plan_engine = PlanEngine.from_snapshot(
             snapshot.get("plans", []), journal=self.journal, on_change=self._flush
         )
+        self.tool_registry = ToolRegistry.deterministic()
+        self.action_executor = ActionExecutor.from_snapshot(
+            snapshot.get("actions", []),
+            self.tool_registry,
+            journal=self.journal,
+            on_change=self._flush,
+        )
         self.cognitive_engine = CognitiveEngine.from_snapshot(
             snapshot.get("cognitive", []),
             plan_engine=self.plan_engine,
+            action_executor=self.action_executor,
             journal=self.journal,
             on_change=self._flush,
         )
@@ -154,6 +163,7 @@ class PersistentRuntime(NexusRuntime):
             "reports": {},
             "plans": [],
             "cognitive": [],
+            "actions": [],
         }
 
     def _load_states(self, snapshot: dict[str, Any]) -> list[MissionState]:
@@ -261,4 +271,5 @@ class PersistentRuntime(NexusRuntime):
             },
             "plans": self.plan_engine.snapshot(),
             "cognitive": self.cognitive_engine.snapshot(),
+            "actions": self.action_executor.snapshot(),
         }

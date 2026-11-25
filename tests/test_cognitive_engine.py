@@ -100,6 +100,23 @@ def test_observation_contradicting_hypothesis_is_failure():
     assert engine.get_cycle(cycle.cycle_id).status == "failed"
 
 
+def test_declared_success_cannot_override_failed_postcondition():
+    engine = CognitiveEngine(plan_engine=PlanEngine())
+    cycle = engine.start(goal())
+    first = engine.plan_engine.get_plan(cycle.plan_id).steps[0]
+    engine.plan_engine.make_step_ready(cycle.plan_id, first.step_id, {})
+    engine.plan_engine.start_step(cycle.plan_id, first.step_id, estimated_cost_usd=0.1)
+    assessment = engine.observe(
+        cycle.cycle_id,
+        first.step_id,
+        {"ok": False},
+        actual_cost_usd=0.1,
+        outcome="success",
+    )
+    assert assessment.outcome == "failure"
+    assert engine.get_cycle(cycle.cycle_id).status == "failed"
+
+
 def test_failure_can_trigger_controlled_replanning_without_replay():
     engine = CognitiveEngine(plan_engine=PlanEngine())
     cycle = engine.start(goal())

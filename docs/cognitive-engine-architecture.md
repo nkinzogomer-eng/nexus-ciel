@@ -185,3 +185,22 @@ versions contiguës et la cohérence cross-snapshot des plans et cycles.
 La politique `controlled_abandon` interdit la reprise automatique après
 interruption. La concurrence multi-writer PostgreSQL sans CAS reste un
 bloqueur explicite.
+
+## Action Engine MVP — Phase 4
+
+Le `ToolRegistry` est une allowlist centrale d’outils déterministes. Chaque
+outil déclare son schéma, ses permissions, son risque, sa réversibilité, son
+coût, sa règle d’idempotence et son périmètre d’accès. L’`ActionExecutor`
+sépare demande, autorisation, exécution, observation et résultat ; il refuse
+par défaut les outils absents, les permissions manquantes, les paramètres
+inattendus et les budgets insuffisants.
+
+`CognitiveEngine.execute_action()` lie une demande à la mission, au plan et à
+l’étape exacte, contrôle la référence `tool:<name>`, transmet l’observation au
+verificateur de postconditions et adapte l’état cognitif. Les états d’action et
+les événements sont persistés. Une clé d’idempotence terminale ne déclenche
+pas de seconde exécution.
+
+Le MVP autorise uniquement `calculate`, `read_workspace`, `write_workspace`,
+`verify_workspace` et deux outils simulés de test. Aucun shell, réseau,
+navigateur, import arbitraire ou accès général au filesystem n’est fourni.
