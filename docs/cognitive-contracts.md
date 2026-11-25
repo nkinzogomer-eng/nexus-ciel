@@ -184,3 +184,14 @@ vérifiées et futures encore valides, les dépendances, le budget restant, les
 critères de réussite et l’historique, puis redirige les dépendances invalidées
 vers une correction explicite. Une étape en cours, incertaine ou obsolète
 n’est jamais rejouée implicitement.
+
+## Action Engine MVP
+
+`ToolRegistry` est une allowlist centrale : un outil doit être enregistré avec
+schémas d’entrée/sortie, permissions, risque, réversibilité, coût, délai
+déclaré, règle d’idempotence et périmètre d’accès. `ActionExecutor` sépare la
+demande, l’autorisation, l’exécution, l’observation et la vérification. Le
+refus est la valeur par défaut ; l’écriture dans un workspace contrôlé exige
+une approbation explicite. Les demandes et leurs états sont liés à mission,
+plan, étape et journal. Une clé d’idempotence terminale ne peut pas déclencher
+un second effet.

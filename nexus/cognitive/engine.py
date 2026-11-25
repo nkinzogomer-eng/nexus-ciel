@@ -278,7 +278,8 @@ class CognitiveDecisionEngine:
         verified: bool,
         outcome_override: Literal["success", "failure", "partial", "uncertain"] | None = None,
     ) -> tuple[ObservationAssessment, CognitiveDecision]:
-        outcome = outcome_override or ("success" if verified else "failure")
+        requested_outcome = outcome_override or ("success" if verified else "failure")
+        outcome = "failure" if requested_outcome == "success" and not verified else requested_outcome
         divergence = [] if verified else ["observed data did not satisfy deterministic postconditions"]
         assessment = ObservationAssessment(
             step_id=step_id,
@@ -291,7 +292,7 @@ class CognitiveDecisionEngine:
         decision = CognitiveDecision(
             kind="keep" if outcome == "success" else ("suspend" if outcome in {"partial", "uncertain"} else "revise"),
             subject_id=cycle_id,
-            reasons=["postconditions verified" if outcome == "success" else f"observation outcome is {outcome}"],
+            reasons=["postconditions verified" if outcome == "success" else f"declared outcome {requested_outcome} was not accepted: {outcome}"],
             evidence=[str(assessment.observation_id)],
         )
         return assessment, decision
@@ -307,6 +308,7 @@ class ControlledReplanner:
         *,
         reason: str,
         correction_title: str = "controlled-correction",
+        correction_tool: str = "calculate",
     ):
         current = plan_engine.get_plan(plan_id)
         failed = [step for step in current.steps if step.status == "failed"]
@@ -347,7 +349,7 @@ class ControlledReplanner:
         correction = Step(
             ordinal=failed_target.ordinal,
             title=correction_title,
-            action_ref=f"cognitive.correction:{failed_target.step_id}",
+                action_ref=f"tool:{correction_tool}",
             depends_on=[
                 dependency
                 for dependency in failed_target.depends_on
@@ -382,6 +384,7 @@ class CognitiveEngine:
         self,
         *,
         plan_engine: PlanEngine,
+        action_executor: Any | None = None,
         journal: MissionJournal | None = None,
         cycles: Iterable[CognitiveCycle] | None = None,
         on_change: Callable[[], None] | None = None,
@@ -389,6 +392,7 @@ class CognitiveEngine:
         ai_enabled: bool | None = None,
     ) -> None:
         self.plan_engine = plan_engine
+        self.action_executor = action_executor
         self.journal = journal
         self._on_change = on_change or (lambda: None)
         self.mode = "AI_ENABLED" if ai_enabled is True else ("CORE_ONLY" if ai_enabled is False else mode)
@@ -401,6 +405,7 @@ class CognitiveEngine:
         *,
         budget_usd: float | None = None,
         llm_recommendation: str | None = None,
+        action_tool: str | None = None,
     ) -> CognitiveCycle:
         with self._lock:
             mission = MissionCompiler().compile(goal)
@@ -415,11 +420,16 @@ class CognitiveEngine:
             )
             chosen = next(candidate for candidate in candidates if candidate.strategy_id == selection.strategy_id)
             per_step = round(chosen.estimated_cost_usd / len(chosen.planned_steps), 10)
+            step_by_subgoal = {
+                subgoal: index
+                for index, subgoal in enumerate(mission.subgoals, start=1)
+                if index <= len(chosen.planned_steps)
+            }
             steps = [
                 Step(
                     ordinal=index,
                     title=title,
-                    action_ref=f"cognitive:{chosen.strategy_id}:{index}",
+                    action_ref=(f"tool:{action_tool}" if action_tool else f"cognitive:{chosen.strategy_id}:{index}"),
                     depends_on=[],
                     postconditions=[DeterministicCondition(key="ok", expected=True)],
                     idempotency_key=f"cognitive:{mission.mission_id}:{chosen.strategy_id}:{index}",
@@ -428,7 +438,15 @@ class CognitiveEngine:
                 for index, title in enumerate(chosen.planned_steps, start=1)
             ]
             steps = [
-                item.model_copy(update={"depends_on": [steps[index - 2].step_id] if index > 1 else []})
+                item.model_copy(
+                    update={
+                        "depends_on": [steps[dependency - 1].step_id for dependency in [
+                            step_by_subgoal[name]
+                            for name in chosen.dependencies.get(mission.subgoals[index - 1], [])
+                            if name in step_by_subgoal and step_by_subgoal[name] < index
+                        ]]
+                    }
+                )
                 for index, item in enumerate(steps, start=1)
             ]
             plan = self.plan_engine.create_plan(
@@ -452,6 +470,53 @@ class CognitiveEngine:
             self._event(cycle, "cognitive_cycle_started", {"plan_id": str(plan.plan_id)})
             self._changed()
             return cycle
+
+    def execute_action(
+        self,
+        cycle_id: UUID,
+        step_id: UUID,
+        request: Any,
+        *,
+        granted_permissions: set[str] | None = None,
+        facts: dict[str, Any] | None = None,
+        approval: bool = False,
+    ) -> Any:
+        """Execute one registered action for the exact current plan step."""
+        if self.action_executor is None:
+            raise CognitiveEngineError("action executor is not configured")
+        cycle = self._cycles[cycle_id]
+        if request.mission_id != cycle.mission.mission_id or request.plan_id != cycle.plan_id or request.step_id != step_id:
+            raise CognitiveEngineError("action request is not bound to the cognitive cycle and step")
+        plan = self.plan_engine.get_plan(cycle.plan_id)
+        step = next(item for item in plan.steps if item.step_id == step_id)
+        if step.action_ref != f"tool:{request.tool_name}":
+            raise CognitiveEngineError("requested tool does not match the registered plan step")
+        if step.status == "planned":
+            self.plan_engine.make_step_ready(cycle.plan_id, step_id, facts or {})
+        spec = self.action_executor.registry.get(request.tool_name)
+        if spec is None:
+            raise CognitiveEngineError("requested tool is not registered")
+        if (spec.requires_approval or spec.risk_level == "high") and not approval:
+            from nexus.actions import ApprovalRequired
+
+            raise ApprovalRequired(f"approval required for tool {spec.name}")
+        if step.status in {"planned", "ready"}:
+            self.plan_engine.start_step(cycle.plan_id, step_id, estimated_cost_usd=spec.estimated_cost_usd)
+        try:
+            result = self.action_executor.execute(
+                request,
+                granted_permissions=granted_permissions,
+                facts=facts,
+                approval=approval,
+                budget_remaining_usd=self.plan_engine.get_plan(cycle.plan_id).budget_usd - self.plan_engine.get_plan(cycle.plan_id).total_spent_cost_usd,
+            )
+        except Exception:
+            raise
+        if result.status in {"succeeded", "partial", "uncertain"}:
+            self.observe(cycle_id, step_id, result.observation, actual_cost_usd=result.actual_cost_usd, outcome=result.outcome or "uncertain")
+        elif result.status in {"failed", "rejected"}:
+            self.plan_engine.fail_step(cycle.plan_id, step_id, result.error or "action rejected")
+        return result
 
     def observe(
         self,
@@ -537,11 +602,13 @@ class CognitiveEngine:
         plans: list[dict[str, Any]],
         *,
         plan_engine: PlanEngine,
+        action_executor: Any | None = None,
         journal: MissionJournal | None = None,
         on_change: Callable[[], None] | None = None,
     ) -> "CognitiveEngine":
         return cls(
             plan_engine=plan_engine,
+            action_executor=action_executor,
             journal=journal,
             cycles=[CognitiveCycle.model_validate(item) for item in plans],
             on_change=on_change,

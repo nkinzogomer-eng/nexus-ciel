@@ -29,27 +29,31 @@ une autonomie cognitive ou à exécuter des outils externes.
 - Phase 3.1 : conservation des suffixes et dépendances, coûts estimé/réservé/
   consommé, résultats partiels/incertains, persistance après révision et trois
   démonstrations JSON reproductibles dans `scripts/phase31_demo_*.py`.
+- Phase 4 MVP : allowlist de six outils déterministes, permissions refusées par
+  défaut, approbation d’écriture, validation de paramètres, idempotence,
+  observation/vérification et restauration des actions ; preuves dans
+  `tests/test_action_engine.py` et `scripts/phase4_demo_suite.py`.
 
 ## Non prêt
 
 - compréhension libre, planner génératif et stratégie corrective riche ; le
   noyau déterministe borné est livré, mais sans autonomie générale ;
-- action executor et Tool Registry effectif ;
+- outils externes, sandbox de processus et timeout matériel ;
 - observation des effets externes ;
 - stratégie corrective ;
-- reprise idempotente ;
+- approbation humaine UI et reprise d’effets externes ;
 - Memory Core persistant et intégré ;
 - SkillCards promues par preuves runtime ;
 - approbation humaine et sécurité d’outils ;
 - expérience de valeur mesurée sans biais du LLM.
 - concurrence multi-instance avec CAS/locking distribué ;
 
-Les 100 tests locaux sont verts. Deux tests PostgreSQL sont skip lorsqu’aucune
+Les 109 tests locaux sont verts. Deux tests PostgreSQL sont skip lorsqu’aucune
 `NEXUS_DATABASE_URL` n’est fournie ; cela ne constitue pas une preuve locale de
 la CI PostgreSQL/Compose. Le CAS multi-writer PostgreSQL reste donc un gate
 bloquant et le verdict demeure Foundation-Ready partiel.
 
-## Gate avant première capacité outil
+## Gate avant outils externes ou effets non réversibles
 
 Aucune exécution d’outil ne doit être ajoutée avant :
 
