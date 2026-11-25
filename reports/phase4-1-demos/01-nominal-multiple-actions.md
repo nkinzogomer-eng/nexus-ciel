@@ -1,0 +1,85 @@
+# Démonstration 1 — mission nominale
+
+**Objectif :** Exécuter plusieurs actions allowlistées et journalisées.
+
+## Environnement et état initial
+{
+  "python": "3.12.3",
+  "branch": "hardening/ciel-phase4-1-reliability-recovery"
+}
+
+## Étapes et événements
+
+1. Créer deux demandes distinctes
+1. Exécuter avec la permission demo
+1. Vérifier les deux résultats et la chaîne
+
+## Résultats
+
+```json
+{
+  "actions": [
+    {
+      "action_id": "4f5a6503-6585-4592-8bec-34de252b3434",
+      "actual_cost_usd": 0.0,
+      "error": null,
+      "idempotent_replay": false,
+      "observation": {
+        "ok": true,
+        "value": 2
+      },
+      "outcome": "success",
+      "status": "succeeded"
+    },
+    {
+      "action_id": "863f5ff9-3348-48f8-a098-dece70bd2538",
+      "actual_cost_usd": 0.0,
+      "error": null,
+      "idempotent_replay": false,
+      "observation": {
+        "ok": true,
+        "value": 3
+      },
+      "outcome": "success",
+      "status": "succeeded"
+    }
+  ],
+  "checks": {
+    "both_succeeded": true,
+    "journal_valid": true
+  },
+  "environment": {
+    "branch": "hardening/ciel-phase4-1-reliability-recovery",
+    "python": "3.12.3"
+  },
+  "handler_calls": 2,
+  "journal_events": [
+    "action_requested",
+    "action_authorized",
+    "action_started",
+    "action_observed",
+    "action_requested",
+    "action_authorized",
+    "action_started",
+    "action_observed"
+  ],
+  "limitations": [
+    "single-writer PostgreSQL",
+    "no process sandbox",
+    "handler timeout is observed after return and is not interruptible"
+  ],
+  "objective": "Ex\u00e9cuter plusieurs actions allowlist\u00e9es et journalis\u00e9es.",
+  "steps": [
+    "Cr\u00e9er deux demandes distinctes",
+    "Ex\u00e9cuter avec la permission demo",
+    "V\u00e9rifier les deux r\u00e9sultats et la cha\u00eene"
+  ],
+  "title": "D\u00e9monstration 1 \u2014 mission nominale"
+}
+```
+
+## Limites
+
+- single-writer PostgreSQL
+- no process sandbox
+- handler timeout is observed after return and is not interruptible

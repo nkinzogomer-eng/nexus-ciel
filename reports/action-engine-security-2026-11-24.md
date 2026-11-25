@@ -21,3 +21,13 @@ Aucun shell, commande système, navigateur, accès réseau, import arbitraire, p
 ## Non-affirmations
 
 Le MVP ne fournit pas encore un sandbox de processus, un timeout matériel pour handlers longs, une approbation humaine UI ou un CAS distribué PostgreSQL. Ces limites sont maintenues explicitement.
+
+## Addendum Phase 4.1 — exécution sûre et recovery
+
+Les demandes portent maintenant une version de contrat et les records persistent une empreinte d’identité canonique ainsi que son contexte. Cette empreinte couvre les paramètres normalisés, préconditions, permissions, budgets/limites, mission, plan, étape et outil. Une même clé liée à un contexte différent est rejetée avant handler.
+
+Une action `running` restaurée devient `interrupted_uncertain`; elle n’est jamais rejouée automatiquement. Les exceptions inattendues après démarrage sont classées conservativement, car l’absence d’observation ne prouve pas l’absence d’effet. Le journal conserve la décision de blocage. Les appels avant démarrage restent protégés par l’allowlist, permissions, approbation et budget.
+
+Les limites de taille d’entrée et de sortie sont appliquées. Le timeout déclaré est mesuré après retour du handler; il ne tue pas un thread Python et ne fournit pas de sandbox de processus. Les tests SIGKILL réels mesurent les appels handler et démontrent la restauration sans second appel.
+
+La concurrence multi-instance PostgreSQL n’est pas revendiquée. Le store est explicitement single-writer par clé de snapshot tant qu’un CAS transactionnel et son test multi-processus ne sont pas livrés.

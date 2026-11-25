@@ -1,0 +1,42 @@
+{
+  "actions": [
+    {
+      "action_id": "3ff21619-74d3-4de9-a181-d246b7b98b62",
+      "actual_cost_usd": 0.0,
+      "error": "restored from running state; automatic replay disabled",
+      "idempotent_replay": true,
+      "observation": {},
+      "outcome": "uncertain",
+      "status": "interrupted_uncertain"
+    }
+  ],
+  "checks": {
+    "journal_valid": true,
+    "no_second_call": true,
+    "restored_status": "interrupted_uncertain",
+    "sigkill": true
+  },
+  "environment": {
+    "branch": "hardening/ciel-phase4-1-reliability-recovery",
+    "python": "3.12.3"
+  },
+  "handler_calls": 1,
+  "journal_events": [
+    "action_requested",
+    "action_authorized",
+    "action_started",
+    "action_recovery_blocked"
+  ],
+  "limitations": [
+    "single-writer PostgreSQL",
+    "no process sandbox",
+    "handler timeout is observed after return and is not interruptible"
+  ],
+  "objective": "Tuer le processus au milieu du handler et restaurer sans rejeu.",
+  "steps": [
+    "D\u00e9marrer un processus enfant",
+    "SIGKILL apr\u00e8s le premier appel handler",
+    "Restaurer le snapshot et bloquer le replay"
+  ],
+  "title": "D\u00e9monstration 2 \u2014 interruption brutale"
+}

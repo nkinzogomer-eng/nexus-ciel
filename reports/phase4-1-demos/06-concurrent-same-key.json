@@ -1,0 +1,50 @@
+{
+  "actions": [
+    {
+      "action_id": "5a4c7bab-1fad-4f91-9f7c-0b8be9e07b8c",
+      "actual_cost_usd": 0.0,
+      "error": null,
+      "idempotent_replay": false,
+      "observation": {
+        "ok": true,
+        "value": 8
+      },
+      "outcome": "success",
+      "status": "succeeded"
+    },
+    {
+      "action_id": "5a4c7bab-1fad-4f91-9f7c-0b8be9e07b8c",
+      "actual_cost_usd": 0.0,
+      "error": null,
+      "idempotent_replay": true,
+      "observation": {
+        "ok": true,
+        "value": 8
+      },
+      "outcome": "success",
+      "status": "succeeded"
+    }
+  ],
+  "checks": {
+    "one_handler_call": true,
+    "one_replay": true
+  },
+  "environment": {
+    "branch": "hardening/ciel-phase4-1-reliability-recovery",
+    "python": "3.12.3"
+  },
+  "handler_calls": 1,
+  "journal_events": [],
+  "limitations": [
+    "single-writer PostgreSQL",
+    "no process sandbox",
+    "handler timeout is observed after return and is not interruptible"
+  ],
+  "objective": "Prouver l\u2019exclusion et l\u2019idempotence dans un ex\u00e9cuteur partag\u00e9.",
+  "steps": [
+    "Soumettre la m\u00eame demande depuis deux threads",
+    "Compter les appels handler",
+    "V\u00e9rifier un r\u00e9sultat original et un replay"
+  ],
+  "title": "D\u00e9monstration 6 \u2014 concurrence m\u00eame cl\u00e9"
+}

@@ -19,3 +19,13 @@ Les demandes et états `requested`, `authorized`, `running`, `succeeded`, `faile
 ## Limites
 
 Le timeout est une limite déclarative du contrat MVP ; aucun handler long ou fournisseur externe n’est autorisé. La reprise après interruption est contrôlée et ne déduit jamais qu’un effet externe a eu lieu. Le modèle de persistance reste single-writer ; le CAS PostgreSQL multi-writer n’est pas revendiqué.
+
+## Addendum Phase 4.1 — Reliability, Crash Recovery & Execution Safety
+
+Une action restaurée en `running` est convertie en `interrupted_uncertain`, terminal et non rejouable automatiquement. La décision est inscrite dans le journal par `action_recovery_blocked`. Les états `requested`, `authorized` (autorisé mais jamais démarré), `running`, `succeeded`, `failed`, `partial`, `uncertain`, `interrupted_uncertain`, `cancelled` et `rejected` sont distingués dans le contrat persisté.
+
+L’identité d’idempotence est une empreinte SHA-256 canonique incluant mission, plan, étape, outil, paramètres, préconditions, permissions effectives, budget demandé, budget restant, limites d’entrée/sortie et versions de contrat. Une collision de clé est refusée; une clé terminale identique retourne le résultat enregistré. Le UUID local de `ToolSpec` n’est pas inclus car il est régénéré au redémarrage; le nom d’outil et la version du contrat sont stables.
+
+Le handler est appelé après la persistance de `action_started`. Les exceptions déterministes de validation restent des échecs contrôlés; une exception inattendue, une interruption de processus ou une sortie impossible à classifier produit `interrupted_uncertain`. Les limites d’entrée/sortie sont effectives. Le timeout est observé après retour du handler et ne constitue pas une interruption matérielle.
+
+La concurrence prouvée est celle d’un exécuteur partagé dans un processus. PostgreSQL reste explicitement single-writer: l’upsert atomique ne fournit pas un CAS multi-processus démontré.
