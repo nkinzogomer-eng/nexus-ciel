@@ -4,7 +4,7 @@ import time
 
 from nexus.bus import AsyncEventBus
 from nexus.cognitive import CognitiveEngine
-from nexus.actions import ActionExecutor, ToolRegistry
+from nexus.actions import ActionExecutor, ApprovalLedger, ToolRegistry
 from nexus.planning import PlanEngine
 from nexus.schemas import Event, Mission, Report
 
@@ -29,7 +29,10 @@ class NexusRuntime:
         self.plan_engine = PlanEngine(journal=self.journal)
         self.registry = CapabilityRegistry()
         self.tool_registry = ToolRegistry.deterministic()
-        self.action_executor = ActionExecutor(self.tool_registry, journal=self.journal)
+        self.approval_ledger = ApprovalLedger()
+        self.action_executor = ActionExecutor(
+            self.tool_registry, journal=self.journal, approval_ledger=self.approval_ledger
+        )
         self.cognitive_engine = CognitiveEngine(plan_engine=self.plan_engine, action_executor=self.action_executor, journal=self.journal)
         self.reports: dict[str, Report] = {}
         self.router = router

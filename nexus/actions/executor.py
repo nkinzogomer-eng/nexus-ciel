@@ -9,6 +9,7 @@ from weakref import WeakKeyDictionary
 from typing import Any, Iterable
 from uuid import UUID
 
+from .approval import ApprovalLedger
 from .models import ActionRecord, ActionRequest, ActionResult
 from .registry import ToolRegistry, ToolRegistryError
 
@@ -44,13 +45,15 @@ class ActionExecutor:
     _coordination_entries: WeakKeyDictionary[Any, OrderedDict[str, dict[str, Any]]] = WeakKeyDictionary()
 
     def __init__(self, registry: ToolRegistry, *, journal: Any | None = None,
-                 records: Iterable[ActionRecord] | None = None, on_change=None) -> None:
+                 records: Iterable[ActionRecord] | None = None, on_change=None,
+                 approval_ledger: ApprovalLedger | None = None) -> None:
         self.registry = registry
         self.journal = journal
         self._records = {record.request.action_id: record for record in records or []}
         self._by_key = {record.request.idempotency_key: record.request.action_id for record in self._records.values()}
         self._lock = RLock()
         self._on_change = on_change or (lambda: None)
+        self.approval_ledger = approval_ledger
         self._recover_running_records()
 
     def request(self, request: ActionRequest, *, identity_hash: str | None = None,
@@ -127,11 +130,24 @@ class ActionExecutor:
                 })
                 self._changed()
                 if needs_approval and not approval:
+                    if self.approval_ledger is not None:
+                        self.approval_ledger.ensure_pending(
+                            identity_hash=record.identity_hash or "",
+                            action_id=request.action_id,
+                            tool_name=spec.name,
+                            context=record.identity_context,
+                        )
+                        self._event(request, "action_approval_pending", {
+                            "tool_name": spec.name, "identity_hash": record.identity_hash,
+                        })
+                        self._changed()
                     self._event(request, "action_approval_required", {
                         "tool_name": spec.name, "risk_level": spec.risk_level,
                     })
                     self._changed()
                     raise ApprovalRequired(f"approval required for tool {spec.name}")
+                if needs_approval and self.approval_ledger is not None and not self.approval_ledger.is_approved(record.identity_hash or ""):
+                    raise ApprovalRequired("approval is not persistently granted for this exact action")
                 record.approved = approval or not needs_approval
                 record.status = "running"
                 record.started_at = datetime.now(timezone.utc)
@@ -244,6 +260,28 @@ class ActionExecutor:
         record.actual_cost_usd = result.actual_cost_usd
         record.finished_at = datetime.now(timezone.utc)
 
+    def approve(self, identity_hash: str, *, approver: str, reason: str = "") -> Any:
+        if self.approval_ledger is None:
+            raise ActionEngineError("persistent approval ledger is not configured")
+        with self._lock:
+            item = self.approval_ledger.approve(identity_hash, approver=approver, reason=reason)
+            self._event_by_identity(identity_hash, "action_approval_granted", {
+                "approver": approver, "approval_id": str(item.approval_id),
+            })
+            self._changed()
+            return item
+
+    def reject_approval(self, identity_hash: str, *, approver: str, reason: str) -> Any:
+        if self.approval_ledger is None:
+            raise ActionEngineError("persistent approval ledger is not configured")
+        with self._lock:
+            item = self.approval_ledger.reject(identity_hash, approver=approver, reason=reason)
+            self._event_by_identity(identity_hash, "action_approval_rejected", {
+                "approver": approver, "approval_id": str(item.approval_id),
+            })
+            self._changed()
+            return item
+
     def get(self, action_id: UUID) -> ActionRecord | None:
         return self._records.get(action_id)
 
@@ -255,10 +293,11 @@ class ActionExecutor:
 
     @classmethod
     def from_snapshot(cls, records: list[dict[str, Any]], registry: ToolRegistry, *,
-                      journal: Any | None = None, on_change=None) -> "ActionExecutor":
+                      journal: Any | None = None, on_change=None,
+                      approval_ledger: ApprovalLedger | None = None) -> "ActionExecutor":
         return cls(registry, journal=journal,
                    records=[ActionRecord.model_validate(item) for item in records],
-                   on_change=on_change)
+                   on_change=on_change, approval_ledger=approval_ledger)
 
     def _recover_running_records(self) -> None:
         for record in self._records.values():
@@ -346,6 +385,12 @@ class ActionExecutor:
     def _event(self, request: ActionRequest, event_type: str, payload: dict[str, Any]) -> None:
         if self.journal is not None:
             self.journal.append(request.mission_id, event_type, "action_executor", {"action_id": str(request.action_id), **payload})
+
+    def _event_by_identity(self, identity_hash: str, event_type: str, payload: dict[str, Any]) -> None:
+        for record in self._records.values():
+            if record.identity_hash == identity_hash:
+                self._event(record.request, event_type, payload)
+                return
 
     def _changed(self) -> None:
         self._on_change()
