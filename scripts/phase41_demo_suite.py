@@ -81,9 +81,9 @@ def unexpected():
 
 
 def concurrent():
-    calls=[]; ex=ActionExecutor(registry(calls)); req=request(value=8, key="concurrent")
-    with ThreadPoolExecutor(max_workers=2) as pool: results=list(pool.map(lambda _: ex.execute(req, granted_permissions={"demo"}), range(2)))
-    write_report("06-concurrent-same-key", {"title": "Démonstration 6 — concurrence même clé", "objective": "Prouver l’exclusion et l’idempotence dans un exécuteur partagé.", "steps": ["Soumettre la même demande depuis deux threads", "Compter les appels handler", "Vérifier un résultat original et un replay"], "actions": [r.model_dump(mode="json") for r in results], "handler_calls": len(calls), "journal_events": [], "checks": {"one_handler_call": len(calls) == 1, "one_replay": sum(r.idempotent_replay for r in results) == 1}})
+    calls=[]; shared_registry=registry(calls); executors=(ActionExecutor(shared_registry), ActionExecutor(shared_registry)); req=request(value=8, key="concurrent")
+    with ThreadPoolExecutor(max_workers=2) as pool: results=list(pool.map(lambda ex: ex.execute(req, granted_permissions={"demo"}), executors))
+    write_report("06-concurrent-same-key", {"title": "Démonstration 6 — concurrence même clé", "objective": "Prouver l’exclusion et l’idempotence entre deux instances d’ActionExecutor dans un même processus.", "steps": ["Créer deux exécuteurs distincts sur le même registre contrôlé", "Soumettre la même demande depuis deux threads", "Compter les appels handler", "Vérifier un résultat original et un replay"], "actions": [r.model_dump(mode="json") for r in results], "handler_calls": len(calls), "journal_events": [], "checks": {"one_handler_call": len(calls) == 1, "one_replay": sum(r.idempotent_replay for r in results) == 1}})
 
 
 def crash_real():

@@ -17,7 +17,7 @@ Phase 4.1 est livrée sur la branche dédiée avec un verdict **partiellement pr
 4. **Une demande différente avec la même clé est-elle rejetée ?** Oui, avant handler, avec test des paramètres, budget, préconditions, permissions et version de contrat.
 5. **Les exceptions et interruptions laissent-elles un état cohérent ?** Les erreurs déterministes pré-démarrage restent `rejected`/`failed`. Les exceptions inconnues après `action_started`, sorties impossibles à classifier, dépassements de sortie et interruptions de processus sont `interrupted_uncertain`; aucune reprise automatique dangereuse n’est autorisée.
 6. **Les états jamais commencée, autorisée, commencée, terminée et inconnue sont-ils distingués ?** Oui via `requested`, `authorized` sans `started_at`, `running`, les états terminaux de succès/échec/partiel, `uncertain` et `interrupted_uncertain`. Le test d’approbation prouve `authorized` sans démarrage.
-7. **La concurrence avec une même clé est-elle prouvée ?** Oui pour deux threads partageant un `ActionExecutor` : un seul appel handler, un résultat original et un replay. La concurrence entre processus/runtime indépendants n’est pas revendiquée.
+7. **La concurrence avec une même clé est-elle prouvée ?** Oui pour deux instances d’`ActionExecutor` partageant un registre contrôlé dans le même processus : un seul appel handler, un résultat original et un replay. La concurrence entre processus/runtime indépendants n’est pas revendiquée.
 8. **Les budgets, permissions, réservations et cognitive loop restent-ils cohérents ?** Les contrôles de budget, permissions, approbation et préconditions sont conservés. `CognitiveEngine` transmet les états incertains à `observe()` et suspend au lieu de considérer l’action comme réussie ou de la relancer.
 9. **PostgreSQL fournit-il un CAS multi-writer ?** Non prouvé. `PostgresSnapshotStore` est explicitement documenté `SINGLE_WRITER_ONLY`; l’upsert SQL est atomique mais ne compare pas une version attendue entre runtimes indépendants.
 10. **CORE_ONLY et la sécurité de périmètre sont-ils préservés ?** Oui. Les handlers restent allowlistés et déterministes, sans fournisseur LLM obligatoire, shell, navigateur, réseau ou filesystem général. `calculate` et les tests cognitifs CORE_ONLY restent verts.
@@ -41,7 +41,7 @@ Commande principale :
 /tmp/ciel-phase2-venv/bin/python -m pytest -ra
 ```
 
-Résultat : **120 passed, 2 skipped**. Les deux skips nécessitent `NEXUS_DATABASE_URL` et correspondent aux preuves PostgreSQL live et PostgreSQL SIGKILL; ils ne sont pas remplacés par des mocks.
+Résultat : **121 passed, 2 skipped**. Les deux skips nécessitent `NEXUS_DATABASE_URL` et correspondent aux preuves PostgreSQL live et PostgreSQL SIGKILL; ils ne sont pas remplacés par des mocks.
 
 Commandes complémentaires :
 

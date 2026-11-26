@@ -28,4 +28,4 @@ L’identité d’idempotence est une empreinte SHA-256 canonique incluant missi
 
 Le handler est appelé après la persistance de `action_started`. Les exceptions déterministes de validation restent des échecs contrôlés; une exception inattendue, une interruption de processus ou une sortie impossible à classifier produit `interrupted_uncertain`. Les limites d’entrée/sortie sont effectives. Le timeout est observé après retour du handler et ne constitue pas une interruption matérielle.
 
-La concurrence prouvée est celle d’un exécuteur partagé dans un processus. PostgreSQL reste explicitement single-writer: l’upsert atomique ne fournit pas un CAS multi-processus démontré.
+La concurrence prouvée couvre deux instances d’`ActionExecutor` partageant un registre contrôlé dans un même processus, avec une seule exécution par clé. PostgreSQL reste explicitement single-writer: l’upsert atomique ne fournit pas un CAS multi-processus démontré.

@@ -37,6 +37,10 @@ class ActionExecutor:
         "succeeded", "failed", "partial", "uncertain", "interrupted_uncertain",
         "cancelled", "rejected",
     }
+    _coordination_guard = RLock()
+    _coordination_locks: dict[tuple[int, str], RLock] = {}
+    _coordination_results: dict[tuple[int, str], ActionResult] = {}
+    _coordination_identities: dict[tuple[int, str], str] = {}
 
     def __init__(self, registry: ToolRegistry, *, journal: Any | None = None,
                  records: Iterable[ActionRecord] | None = None, on_change=None) -> None:
@@ -132,42 +136,7 @@ class ActionExecutor:
                 record.started_at = datetime.now(timezone.utc)
                 self._event(request, "action_started", {"tool_name": spec.name})
                 self._changed()
-                started = record.started_at
-                try:
-                    observation = self.registry.handler(spec.name)(dict(request.parameters))
-                    if not isinstance(observation, dict):
-                        raise TypeError("tool handler must return an object")
-                    self._assert_output_size(observation)
-                    outcome = observation.pop("_outcome", "success")
-                    if outcome not in {"success", "failure", "partial", "uncertain"}:
-                        raise ActionEngineError(f"invalid tool outcome: {outcome}")
-                    record.outcome = outcome
-                    record.status = outcome if outcome != "success" else "succeeded"
-                    record.observation = observation
-                    record.actual_cost_usd = spec.estimated_cost_usd
-                    record.finished_at = datetime.now(timezone.utc)
-                    elapsed = (record.finished_at - started).total_seconds()
-                    if elapsed > spec.timeout_s:
-                        self._mark_interrupted(record, f"handler exceeded timeout of {spec.timeout_s}s")
-                    else:
-                        self._event(request, "action_observed", {
-                            "tool_name": spec.name, "status": record.status,
-                            "outcome": outcome, "observation": observation,
-                            "actual_cost_usd": record.actual_cost_usd,
-                        })
-                        self._changed()
-                    return self._result(record)
-                except ActionEffectUncertain as exc:
-                    self._mark_interrupted(record, str(exc))
-                    return self._result(record)
-                except (ActionRejected, ToolRegistryError, ValueError, RuntimeError) as exc:
-                    return self._finish_failure(record, str(exc), rejected=isinstance(exc, (ActionRejected, ToolRegistryError)))
-                except Exception as exc:
-                    self._mark_interrupted(record, f"unexpected exception after handler start: {type(exc).__name__}: {exc}")
-                    return self._result(record)
-                except BaseException as exc:
-                    self._mark_interrupted(record, f"unexpected interruption after handler start: {type(exc).__name__}: {exc}")
-                    raise
+                return self._execute_started(record, spec, request)
             except ApprovalRequired:
                 raise
             except (ActionRejected, ToolRegistryError, ValueError, RuntimeError) as exc:
@@ -176,6 +145,76 @@ class ActionExecutor:
                 if record.status not in self.TERMINAL:
                     self._mark_interrupted(record, f"unexpected exception before completion: {type(exc).__name__}: {exc}")
                 raise
+
+    def _execute_started(self, record: ActionRecord, spec: Any, request: ActionRequest) -> ActionResult:
+        """Run one started handler under a process-local per-key coordinator."""
+        coordination_key = (id(self.registry), request.idempotency_key)
+        with self._coordination_guard:
+            lock = self._coordination_locks.setdefault(coordination_key, RLock())
+        with lock:
+            cached = self._coordination_results.get(coordination_key)
+            if cached is not None:
+                if self._coordination_identities.get(coordination_key) != record.identity_hash:
+                    raise ActionRejected("idempotency key is bound to a different action identity")
+                self._copy_result_to_record(record, cached)
+                return self._result(record, replay=True)
+            started = record.started_at
+            try:
+                observation = self.registry.handler(spec.name)(dict(request.parameters))
+                if not isinstance(observation, dict):
+                    raise TypeError("tool handler must return an object")
+                self._assert_output_size(observation)
+                outcome = observation.pop("_outcome", "success")
+                if outcome not in {"success", "failure", "partial", "uncertain"}:
+                    raise ActionEngineError(f"invalid tool outcome: {outcome}")
+                record.outcome = outcome
+                record.status = outcome if outcome != "success" else "succeeded"
+                record.observation = observation
+                record.actual_cost_usd = spec.estimated_cost_usd
+                record.finished_at = datetime.now(timezone.utc)
+                elapsed = (record.finished_at - started).total_seconds()
+                if elapsed > spec.timeout_s:
+                    self._mark_interrupted(record, f"handler exceeded timeout of {spec.timeout_s}s")
+                else:
+                    self._event(request, "action_observed", {
+                        "tool_name": spec.name, "status": record.status,
+                        "outcome": outcome, "observation": observation,
+                        "actual_cost_usd": record.actual_cost_usd,
+                    })
+                    self._changed()
+                result = self._result(record)
+                self._coordination_results[coordination_key] = result
+                self._coordination_identities[coordination_key] = record.identity_hash or ""
+                return result
+            except ActionEffectUncertain as exc:
+                self._mark_interrupted(record, str(exc))
+                result = self._result(record)
+                self._coordination_results[coordination_key] = result
+                self._coordination_identities[coordination_key] = record.identity_hash or ""
+                return result
+            except (ActionRejected, ToolRegistryError, ValueError, RuntimeError) as exc:
+                result = self._finish_failure(record, str(exc), rejected=isinstance(exc, (ActionRejected, ToolRegistryError)))
+                self._coordination_results[coordination_key] = result
+                self._coordination_identities[coordination_key] = record.identity_hash or ""
+                return result
+            except Exception as exc:
+                self._mark_interrupted(record, f"unexpected exception after handler start: {type(exc).__name__}: {exc}")
+                result = self._result(record)
+                self._coordination_results[coordination_key] = result
+                self._coordination_identities[coordination_key] = record.identity_hash or ""
+                return result
+            except BaseException as exc:
+                self._mark_interrupted(record, f"unexpected interruption after handler start: {type(exc).__name__}: {exc}")
+                raise
+
+    @staticmethod
+    def _copy_result_to_record(record: ActionRecord, result: ActionResult) -> None:
+        record.status = result.status
+        record.outcome = result.outcome
+        record.observation = dict(result.observation)
+        record.error = result.error
+        record.actual_cost_usd = result.actual_cost_usd
+        record.finished_at = datetime.now(timezone.utc)
 
     def get(self, action_id: UUID) -> ActionRecord | None:
         return self._records.get(action_id)

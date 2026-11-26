@@ -94,6 +94,24 @@ def test_two_threads_same_executor_and_key_call_handler_once():
     assert all(result.status == "succeeded" for result in results)
 
 
+def test_two_executor_instances_same_registry_and_key_call_handler_once():
+    calls = []
+    registry = counted_registry(calls, Lock())
+    first_executor = ActionExecutor(registry)
+    second_executor = ActionExecutor(registry)
+    request = make_request(idempotency_key="concurrent-executors")
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(
+            lambda executor: executor.execute(request, granted_permissions={"demo"}),
+            (first_executor, second_executor),
+        ))
+
+    assert len(calls) == 1
+    assert sorted(result.idempotent_replay for result in results) == [False, True]
+    assert all(result.status == "succeeded" for result in results)
+
+
 def test_approval_required_is_authorized_but_never_started():
     calls = []
     registry = ToolRegistry()

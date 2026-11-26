@@ -1,6 +1,6 @@
 # Démonstration 6 — concurrence même clé
 
-**Objectif :** Prouver l’exclusion et l’idempotence dans un exécuteur partagé.
+**Objectif :** Prouver l’exclusion et l’idempotence entre deux instances d’ActionExecutor dans un même processus.
 
 ## Environnement et état initial
 {
@@ -10,6 +10,7 @@
 
 ## Étapes et événements
 
+1. Créer deux exécuteurs distincts sur le même registre contrôlé
 1. Soumettre la même demande depuis deux threads
 1. Compter les appels handler
 1. Vérifier un résultat original et un replay
@@ -20,7 +21,7 @@
 {
   "actions": [
     {
-      "action_id": "5a4c7bab-1fad-4f91-9f7c-0b8be9e07b8c",
+      "action_id": "b7d7141f-a989-40c9-8f64-c44a480b91d0",
       "actual_cost_usd": 0.0,
       "error": null,
       "idempotent_replay": false,
@@ -32,7 +33,7 @@
       "status": "succeeded"
     },
     {
-      "action_id": "5a4c7bab-1fad-4f91-9f7c-0b8be9e07b8c",
+      "action_id": "b7d7141f-a989-40c9-8f64-c44a480b91d0",
       "actual_cost_usd": 0.0,
       "error": null,
       "idempotent_replay": true,
@@ -59,8 +60,9 @@
     "no process sandbox",
     "handler timeout is observed after return and is not interruptible"
   ],
-  "objective": "Prouver l\u2019exclusion et l\u2019idempotence dans un ex\u00e9cuteur partag\u00e9.",
+  "objective": "Prouver l\u2019exclusion et l\u2019idempotence entre deux instances d\u2019ActionExecutor dans un m\u00eame processus.",
   "steps": [
+    "Cr\u00e9er deux ex\u00e9cuteurs distincts sur le m\u00eame registre contr\u00f4l\u00e9",
     "Soumettre la m\u00eame demande depuis deux threads",
     "Compter les appels handler",
     "V\u00e9rifier un r\u00e9sultat original et un replay"

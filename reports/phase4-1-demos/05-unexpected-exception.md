@@ -20,7 +20,7 @@
 {
   "actions": [
     {
-      "action_id": "b29154da-005a-4819-b85f-00e35080269a",
+      "action_id": "707025b3-441f-4c14-acba-1dfaa097f28a",
       "actual_cost_usd": 0.0,
       "error": "unexpected exception after handler start: KeyError: 'unexpected demo exception'",
       "idempotent_replay": false,
@@ -29,7 +29,7 @@
       "status": "interrupted_uncertain"
     },
     {
-      "action_id": "b29154da-005a-4819-b85f-00e35080269a",
+      "action_id": "707025b3-441f-4c14-acba-1dfaa097f28a",
       "actual_cost_usd": 0.0,
       "error": "unexpected exception after handler start: KeyError: 'unexpected demo exception'",
       "idempotent_replay": true,
