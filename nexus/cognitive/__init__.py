@@ -20,6 +20,7 @@ from .models import (
     StrategyCandidate,
     StrategySelection,
 )
+from .natural import GoalInputAnalysis, NaturalGoalInterpreter
 
 __all__ = [
     "CognitiveCycle",
@@ -30,10 +31,12 @@ __all__ = [
     "CompiledMission",
     "ControlledReplanner",
     "GoalUnderstanding",
+    "GoalInputAnalysis",
     "GoalUnderstandingEngine",
     "Hypothesis",
     "MissionCompilationError",
     "MissionCompiler",
+    "NaturalGoalInterpreter",
     "MissingInformation",
     "ObservationAssessment",
     "StrategyCandidate",

@@ -26,6 +26,7 @@ from .models import (
     StrategyCandidate,
     StrategySelection,
 )
+from .natural import GoalInputAnalysis, NaturalGoalInterpreter
 
 if TYPE_CHECKING:
     from nexus.core.mission_journal import MissionJournal
@@ -431,7 +432,13 @@ class CognitiveEngine:
                     title=title,
                     action_ref=(f"tool:{action_tool}" if action_tool else f"cognitive:{chosen.strategy_id}:{index}"),
                     depends_on=[],
-                    postconditions=[DeterministicCondition(key="ok", expected=True)],
+                    postconditions=[
+                        DeterministicCondition(key="ok", expected=True),
+                        *[
+                            DeterministicCondition(key=str(key), expected=value)
+                            for key, value in goal.constraints.get("expected_observations", {}).items()
+                        ],
+                    ],
                     idempotency_key=f"cognitive:{mission.mission_id}:{chosen.strategy_id}:{index}",
                     budget_usd=per_step,
                 )
@@ -470,6 +477,25 @@ class CognitiveEngine:
             self._event(cycle, "cognitive_cycle_started", {"plan_id": str(plan.plan_id)})
             self._changed()
             return cycle
+
+    def understand_natural(self, text: str) -> GoalInputAnalysis:
+        """Return a bounded interpretation without creating or executing a mission."""
+        return NaturalGoalInterpreter().interpret(text)
+
+    def start_natural(
+        self,
+        text: str,
+        *,
+        budget_usd: float | None = None,
+        action_tool: str | None = None,
+    ) -> CognitiveCycle:
+        """Start only an accepted natural goal; blocking ambiguity is not guessed."""
+        analysis = self.understand_natural(text)
+        if analysis.is_blocked:
+            raise MissionCompilationError(
+                "clarification required: " + "; ".join(analysis.blocking_questions)
+            )
+        return self.start(analysis.to_goal(), budget_usd=budget_usd, action_tool=action_tool)
 
     def execute_action(
         self,

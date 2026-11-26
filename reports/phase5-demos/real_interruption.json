@@ -1,0 +1,12 @@
+{
+  "automatic_replay": false,
+  "expected_signal": -9,
+  "handler_calls": [
+    "handler"
+  ],
+  "mission": "real_interruption",
+  "process_return_code": -9,
+  "replay_status": "interrupted_uncertain",
+  "replay_was_idempotent": true,
+  "restored_status": "interrupted_uncertain"
+}

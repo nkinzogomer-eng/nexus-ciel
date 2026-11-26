@@ -7,7 +7,7 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from nexus.core import NexusRuntime
-from nexus.actions import ActionExecutor, ToolRegistry
+from nexus.actions import ActionExecutor, ApprovalLedger, ToolRegistry
 from nexus.cognitive import CognitiveEngine
 from nexus.core.capability_registry import CapabilityRegistry
 from nexus.core.mission_journal import JournalEntry, MissionJournal
@@ -110,7 +110,8 @@ class PersistentRuntime(NexusRuntime):
     SNAPSHOT_SCHEMA_VERSION = 1
     INTERRUPTION_POLICY = "controlled_abandon"
 
-    def __init__(self, store: SnapshotStore, router: object | None = None) -> None:
+    def __init__(self, store: SnapshotStore, router: object | None = None,
+                 workspace_root: str | Path | None = None) -> None:
         self._store = store
         self._loading = True
         self.recovered_interruptions: list[str] = []
@@ -124,12 +125,14 @@ class PersistentRuntime(NexusRuntime):
         self.plan_engine = PlanEngine.from_snapshot(
             snapshot.get("plans", []), journal=self.journal, on_change=self._flush
         )
-        self.tool_registry = ToolRegistry.deterministic()
+        self.tool_registry = ToolRegistry.deterministic(workspace_root=workspace_root)
+        self.approval_ledger = ApprovalLedger.from_snapshot(snapshot.get("approvals", []))
         self.action_executor = ActionExecutor.from_snapshot(
             snapshot.get("actions", []),
             self.tool_registry,
             journal=self.journal,
             on_change=self._flush,
+            approval_ledger=self.approval_ledger,
         )
         self.cognitive_engine = CognitiveEngine.from_snapshot(
             snapshot.get("cognitive", []),
@@ -164,6 +167,7 @@ class PersistentRuntime(NexusRuntime):
             "plans": [],
             "cognitive": [],
             "actions": [],
+            "approvals": [],
         }
 
     def _load_states(self, snapshot: dict[str, Any]) -> list[MissionState]:
@@ -272,4 +276,5 @@ class PersistentRuntime(NexusRuntime):
             "plans": self.plan_engine.snapshot(),
             "cognitive": self.cognitive_engine.snapshot(),
             "actions": self.action_executor.snapshot(),
+            "approvals": self.approval_ledger.snapshot(),
         }

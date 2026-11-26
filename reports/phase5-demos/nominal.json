@@ -1,0 +1,68 @@
+{
+  "action": {
+    "action_id": "10a9b784-f9c2-47ac-91e0-c860c5be29df",
+    "actual_cost_usd": 0.01,
+    "error": null,
+    "idempotent_replay": false,
+    "observation": {
+      "count": 2,
+      "ok": true,
+      "operation": "add",
+      "result": 10
+    },
+    "outcome": "success",
+    "status": "succeeded"
+  },
+  "final_status": "succeeded",
+  "input": {
+    "ambiguities": [],
+    "approval_required_tools": [],
+    "blocking_questions": [],
+    "confidence": 0.55,
+    "contradictions": [],
+    "decisions": [
+      "continue without clarification for non-blocking unknowns"
+    ],
+    "expected_results": [
+      "vaut 10"
+    ],
+    "explicit_constraints": {
+      "budget_usd": 1.0,
+      "expected_observations": {
+        "result": 10
+      }
+    },
+    "hypotheses": [],
+    "implicit_constraints": [
+      "do not use unallowlisted tools",
+      "do not exceed declared budgets or limits",
+      "do not replay uncertain effects automatically"
+    ],
+    "known_facts": {},
+    "objective": "Calcule la somme 4 et 6",
+    "risks": [],
+    "source_text": "Calcule la somme 4 et 6, avec budget 1, v\u00e9rifie que le r\u00e9sultat vaut 10",
+    "status": "accepted",
+    "success_criteria": [
+      "le r\u00e9sultat vaut 10"
+    ],
+    "unknowns": []
+  },
+  "mission": "nominal",
+  "strategy": {
+    "candidate_name": "staged-verified",
+    "deterministic_key": "staged-verified:1.2:0.75|direct-bounded:1.0:0.5|cost-minimal-checkpointed:0.85:0.25",
+    "reasons": [
+      "highest deterministic adjusted score (1.140)",
+      "estimated cost 0.75 <= budget 1.0",
+      "stronger verification",
+      "lower uncertainty"
+    ],
+    "rejected_candidates": [
+      "d9ad1e23-e855-5740-81c9-587264a86db0",
+      "4d7d892d-f2b7-5fe1-9a06-aa901f3720fa"
+    ],
+    "selected_at": "2026-11-26T04:59:27.266927Z",
+    "strategy_id": "b950081c-c8a8-5e0d-b51c-7fc32d8286ee"
+  }
+}
