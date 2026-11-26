@@ -9,7 +9,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Lock
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from nexus.actions import ActionExecutor, ActionRecord, ActionRejected, ActionRequest, ToolRegistry, ToolSpec
 from nexus.core.mission_journal import MissionJournal
@@ -20,9 +20,13 @@ OUT = ROOT / "reports" / "phase4-1-demos"
 
 
 def request(tool="counted", key=None, **params):
+    key = key or f"demo-{uuid4()}"
     return ActionRequest(
-        mission_id=uuid4(), plan_id=uuid4(), step_id=uuid4(), tool_name=tool,
-        parameters=params, idempotency_key=key or f"demo-{uuid4()}", budget_usd=1.0,
+        action_id=uuid5(NAMESPACE_URL, f"ciel-demo:{key}:action"),
+        mission_id=uuid5(NAMESPACE_URL, f"ciel-demo:{key}:mission"),
+        plan_id=uuid5(NAMESPACE_URL, f"ciel-demo:{key}:plan"),
+        step_id=uuid5(NAMESPACE_URL, f"ciel-demo:{key}:step"), tool_name=tool,
+        parameters=params, idempotency_key=key, budget_usd=1.0,
     )
 
 
@@ -89,7 +93,7 @@ def concurrent():
 def crash_real():
     with tempfile.TemporaryDirectory() as temp:
         root=Path(temp); snapshot=root/"runtime.json"; marker=root/"calls"; reqfile=root/"request.json"
-        code="""import os,signal,sys\nfrom nexus.actions import ActionRequest\nfrom nexus.persistence import FileSnapshotStore,PersistentRuntime\nfrom uuid import uuid4\nr=PersistentRuntime(FileSnapshotStore(sys.argv[1]))\nq=ActionRequest(mission_id=uuid4(),plan_id=uuid4(),step_id=uuid4(),tool_name='calculate',parameters={'operation':'add','values':[1,2]},idempotency_key='crash-demo',budget_usd=1)\nopen(sys.argv[3],'w').write(q.model_dump_json())\ndef h(p):\n open(sys.argv[2],'a').write('call\\n'); os.kill(os.getpid(),signal.SIGKILL)\nr.action_executor.registry._handlers['calculate']=h\nr.action_executor.execute(q,granted_permissions={'compute'})\n"""
+        code="""import os,signal,sys\nfrom nexus.actions import ActionRequest\nfrom nexus.persistence import FileSnapshotStore,PersistentRuntime\nfrom uuid import NAMESPACE_URL,uuid5\nkey='crash-demo'\nq=ActionRequest(action_id=uuid5(NAMESPACE_URL,'ciel-demo:'+key+':action'),mission_id=uuid5(NAMESPACE_URL,'ciel-demo:'+key+':mission'),plan_id=uuid5(NAMESPACE_URL,'ciel-demo:'+key+':plan'),step_id=uuid5(NAMESPACE_URL,'ciel-demo:'+key+':step'),tool_name='calculate',parameters={'operation':'add','values':[1,2]},idempotency_key=key,budget_usd=1)\nr=PersistentRuntime(FileSnapshotStore(sys.argv[1]))\nopen(sys.argv[3],'w').write(q.model_dump_json())\ndef h(p):\n open(sys.argv[2],'a').write('call\\n'); os.kill(os.getpid(),signal.SIGKILL)\nr.action_executor.registry._handlers['calculate']=h\nr.action_executor.execute(q,granted_permissions={'compute'})\n"""
         child=subprocess.Popen([sys.executable,"-c",code,str(snapshot),str(marker),str(reqfile)],cwd=ROOT,env={**os.environ,"PYTHONPATH":str(ROOT)})
         exit_code=child.wait(timeout=10); restarted=PersistentRuntime(FileSnapshotStore(snapshot)); q=ActionRequest.model_validate_json(reqfile.read_text()); restored=restarted.action_executor.get(q.action_id); replay=restarted.action_executor.execute(q,granted_permissions={"compute"})
         write_report("02-crash-mid-action", {"title":"Démonstration 2 — interruption brutale", "objective":"Tuer le processus au milieu du handler et restaurer sans rejeu.", "steps":["Démarrer un processus enfant", "SIGKILL après le premier appel handler", "Restaurer le snapshot et bloquer le replay"], "actions":[replay.model_dump(mode="json")], "handler_calls":len(marker.read_text().splitlines()), "journal_events":[e.type for e in restarted.journal.entries(q.mission_id)], "checks":{"sigkill":exit_code == -signal.SIGKILL,"restored_status":restored.status if restored else None,"no_second_call":len(marker.read_text().splitlines()) == 1,"journal_valid":restarted.journal.verify_chain()}})

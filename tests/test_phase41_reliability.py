@@ -8,6 +8,7 @@ import pytest
 
 from nexus.actions import ActionExecutor, ActionRecord, ActionRejected, ActionRequest, ApprovalRequired, ToolRegistry, ToolSpec
 from nexus.core.mission_journal import MissionJournal
+from nexus.persistence import FileSnapshotStore
 
 
 def make_request(**updates):
@@ -110,6 +111,37 @@ def test_two_executor_instances_same_registry_and_key_call_handler_once():
     assert len(calls) == 1
     assert sorted(result.idempotent_replay for result in results) == [False, True]
     assert all(result.status == "succeeded" for result in results)
+
+
+def test_second_executor_persists_coordinated_result_and_restores_without_replay(tmp_path):
+    calls = []
+    registry = counted_registry(calls, Lock())
+    store = FileSnapshotStore(tmp_path / "second-executor.json")
+    journal = MissionJournal()
+    holder = {}
+
+    def persist_second():
+        store.save({"actions": holder["executor"].snapshot()})
+
+    first_executor = ActionExecutor(registry)
+    second_executor = ActionExecutor(registry, journal=journal, on_change=persist_second)
+    holder["executor"] = second_executor
+    request = make_request(idempotency_key="persist-coordinated-result")
+
+    first = first_executor.execute(request, granted_permissions={"demo"})
+    second = second_executor.execute(request, granted_permissions={"demo"})
+
+    persisted = store.load()["actions"][0]
+    assert first.status == "succeeded"
+    assert second.status == "succeeded" and second.idempotent_replay is True
+    assert persisted["status"] == "succeeded"
+    assert persisted["observation"]["value"] == 1
+    assert any(entry.type == "action_coordination_replayed" for entry in journal.entries())
+
+    restored = ActionExecutor.from_snapshot(store.load()["actions"], registry)
+    replay = restored.execute(request, granted_permissions={"demo"})
+    assert replay.status == "succeeded" and replay.idempotent_replay is True
+    assert len(calls) == 1
 
 
 def test_approval_required_is_authorized_but_never_started():

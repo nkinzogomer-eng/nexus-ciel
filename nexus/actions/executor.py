@@ -3,7 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime, timezone
+from collections import OrderedDict
 from threading import RLock
+from weakref import WeakKeyDictionary
 from typing import Any, Iterable
 from uuid import UUID
 
@@ -37,10 +39,9 @@ class ActionExecutor:
         "succeeded", "failed", "partial", "uncertain", "interrupted_uncertain",
         "cancelled", "rejected",
     }
+    COORDINATION_CACHE_LIMIT = 1024
     _coordination_guard = RLock()
-    _coordination_locks: dict[tuple[int, str], RLock] = {}
-    _coordination_results: dict[tuple[int, str], ActionResult] = {}
-    _coordination_identities: dict[tuple[int, str], str] = {}
+    _coordination_entries: WeakKeyDictionary[Any, OrderedDict[str, dict[str, Any]]] = WeakKeyDictionary()
 
     def __init__(self, registry: ToolRegistry, *, journal: Any | None = None,
                  records: Iterable[ActionRecord] | None = None, on_change=None) -> None:
@@ -148,15 +149,22 @@ class ActionExecutor:
 
     def _execute_started(self, record: ActionRecord, spec: Any, request: ActionRequest) -> ActionResult:
         """Run one started handler under a process-local per-key coordinator."""
-        coordination_key = (id(self.registry), request.idempotency_key)
+        coordination_key = request.idempotency_key
         with self._coordination_guard:
-            lock = self._coordination_locks.setdefault(coordination_key, RLock())
+            entries = self._coordination_entries.setdefault(self.registry, OrderedDict())
+            entry = entries.setdefault(coordination_key, {"lock": RLock(), "result": None, "identity": None})
+            entries.move_to_end(coordination_key)
+            lock = entry["lock"]
         with lock:
-            cached = self._coordination_results.get(coordination_key)
+            cached = entry["result"]
             if cached is not None:
-                if self._coordination_identities.get(coordination_key) != record.identity_hash:
+                if entry["identity"] != record.identity_hash:
                     raise ActionRejected("idempotency key is bound to a different action identity")
                 self._copy_result_to_record(record, cached)
+                self._event(request, "action_coordination_replayed", {
+                    "status": cached.status, "source": "process_local_registry_coordinator",
+                })
+                self._changed()
                 return self._result(record, replay=True)
             started = record.started_at
             try:
@@ -183,29 +191,49 @@ class ActionExecutor:
                     })
                     self._changed()
                 result = self._result(record)
-                self._coordination_results[coordination_key] = result
-                self._coordination_identities[coordination_key] = record.identity_hash or ""
+                entry["result"] = result
+                entry["identity"] = record.identity_hash or ""
+                self._trim_coordination_cache(entries)
                 return result
             except ActionEffectUncertain as exc:
                 self._mark_interrupted(record, str(exc))
                 result = self._result(record)
-                self._coordination_results[coordination_key] = result
-                self._coordination_identities[coordination_key] = record.identity_hash or ""
+                entry["result"] = result
+                entry["identity"] = record.identity_hash or ""
+                self._trim_coordination_cache(entries)
                 return result
             except (ActionRejected, ToolRegistryError, ValueError, RuntimeError) as exc:
                 result = self._finish_failure(record, str(exc), rejected=isinstance(exc, (ActionRejected, ToolRegistryError)))
-                self._coordination_results[coordination_key] = result
-                self._coordination_identities[coordination_key] = record.identity_hash or ""
+                entry["result"] = result
+                entry["identity"] = record.identity_hash or ""
+                self._trim_coordination_cache(entries)
                 return result
             except Exception as exc:
                 self._mark_interrupted(record, f"unexpected exception after handler start: {type(exc).__name__}: {exc}")
                 result = self._result(record)
-                self._coordination_results[coordination_key] = result
-                self._coordination_identities[coordination_key] = record.identity_hash or ""
+                entry["result"] = result
+                entry["identity"] = record.identity_hash or ""
+                self._trim_coordination_cache(entries)
                 return result
             except BaseException as exc:
                 self._mark_interrupted(record, f"unexpected interruption after handler start: {type(exc).__name__}: {exc}")
                 raise
+
+    @classmethod
+    def _trim_coordination_cache(cls, entries: OrderedDict[str, dict[str, Any]]) -> None:
+        while len(entries) > cls.COORDINATION_CACHE_LIMIT:
+            key, entry = next(iter(entries.items()))
+            if entry["lock"].acquire(blocking=False):
+                try:
+                    if entry["result"] is not None:
+                        entries.pop(key, None)
+                    else:
+                        entries.move_to_end(key)
+                finally:
+                    entry["lock"].release()
+            else:
+                entries.move_to_end(key)
+                break
 
     @staticmethod
     def _copy_result_to_record(record: ActionRecord, result: ActionResult) -> None:

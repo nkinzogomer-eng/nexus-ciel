@@ -21,7 +21,7 @@
 {
   "actions": [
     {
-      "action_id": "b7d7141f-a989-40c9-8f64-c44a480b91d0",
+      "action_id": "5c9bc183-6117-5d70-b336-49c022f4a897",
       "actual_cost_usd": 0.0,
       "error": null,
       "idempotent_replay": false,
@@ -33,7 +33,7 @@
       "status": "succeeded"
     },
     {
-      "action_id": "b7d7141f-a989-40c9-8f64-c44a480b91d0",
+      "action_id": "5c9bc183-6117-5d70-b336-49c022f4a897",
       "actual_cost_usd": 0.0,
       "error": null,
       "idempotent_replay": true,

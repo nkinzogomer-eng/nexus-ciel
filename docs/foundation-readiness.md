@@ -48,7 +48,7 @@ une autonomie cognitive ou à exécuter des outils externes.
 - expérience de valeur mesurée sans biais du LLM.
 - concurrence multi-instance avec CAS/locking distribué ;
 
-Les 121 tests locaux sont verts. Deux tests PostgreSQL sont skip lorsqu’aucune
+Les 122 tests locaux sont verts. Deux tests PostgreSQL sont skip lorsqu’aucune
 `NEXUS_DATABASE_URL` n’est fournie ; cela ne constitue pas une preuve locale de
 la CI PostgreSQL/Compose. Le CAS multi-writer PostgreSQL reste donc un gate
 bloquant et le verdict demeure Foundation-Ready partiel.
@@ -72,4 +72,4 @@ Phase 4.1 est **partiellement prouvée dans le périmètre déterministe local**
 
 Le verdict ne s’étend pas à un sandbox de processus, à un timeout interruptible, à un effet externe observable, ni à plusieurs writers PostgreSQL. `PostgresSnapshotStore` est explicitement single-writer par clé; son upsert ne constitue pas une preuve CAS multi-processus. Les deux tests PostgreSQL restent conditionnels à `NEXUS_DATABASE_URL`.
 
-La validation locale Phase 4.1 exécutée sur la branche dédiée est verte : `121 passed, 2 skipped` (les deux skips exigent `NEXUS_DATABASE_URL`; ce nombre vaut pour cet environnement et cette révision).
+La validation locale Phase 4.1 exécutée sur la branche dédiée est verte : `122 passed, 2 skipped` (les deux skips exigent `NEXUS_DATABASE_URL`; ce nombre vaut pour cet environnement et cette révision).
