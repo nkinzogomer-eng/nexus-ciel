@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 ActionStatus = Literal[
     "requested", "authorized", "running", "succeeded", "failed", "partial",
-    "uncertain", "cancelled", "rejected",
+    "uncertain", "interrupted_uncertain", "cancelled", "rejected",
 ]
 ActionOutcome = Literal["success", "failure", "partial", "uncertain"]
 RiskLevel = Literal["low", "medium", "high"]
@@ -43,6 +43,7 @@ class ActionRequest(BaseModel):
     idempotency_key: str = Field(min_length=1, max_length=256)
     budget_usd: float = Field(default=0.0, ge=0.0)
     preconditions: dict[str, Any] = Field(default_factory=dict)
+    contract_version: int = Field(default=1, ge=1)
     requested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -60,6 +61,8 @@ class ActionRecord(BaseModel):
     actual_cost_usd: float = 0.0
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    identity_hash: str | None = None
+    identity_context: dict[str, Any] = Field(default_factory=dict)
 
 
 class ActionResult(BaseModel):

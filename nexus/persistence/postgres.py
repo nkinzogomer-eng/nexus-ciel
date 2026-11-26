@@ -7,6 +7,15 @@ from .dsn import normalize_postgres_dsn_for_psycopg
 
 
 class PostgresSnapshotStore:
+    """Durable snapshot store.
+
+    Phase 4.1 deliberately supports a single runtime writer per snapshot key.
+    The upsert is atomic for one SQL statement, but this class does not claim
+    optimistic CAS/version protection between independent runtime processes.
+    """
+
+    SINGLE_WRITER_ONLY = True
+
     def __init__(self, dsn: str, snapshot_key: str = "default") -> None:
         self.dsn, self.snapshot_key = dsn, snapshot_key
 

@@ -1,0 +1,78 @@
+# Démonstration 6 — concurrence même clé
+
+**Objectif :** Prouver l’exclusion et l’idempotence entre deux instances d’ActionExecutor dans un même processus.
+
+## Environnement et état initial
+{
+  "python": "3.12.3",
+  "branch": "hardening/ciel-phase4-1-reliability-recovery"
+}
+
+## Étapes et événements
+
+1. Créer deux exécuteurs distincts sur le même registre contrôlé
+1. Soumettre la même demande depuis deux threads
+1. Compter les appels handler
+1. Vérifier un résultat original et un replay
+
+## Résultats
+
+```json
+{
+  "actions": [
+    {
+      "action_id": "5c9bc183-6117-5d70-b336-49c022f4a897",
+      "actual_cost_usd": 0.0,
+      "error": null,
+      "idempotent_replay": false,
+      "observation": {
+        "ok": true,
+        "value": 8
+      },
+      "outcome": "success",
+      "status": "succeeded"
+    },
+    {
+      "action_id": "5c9bc183-6117-5d70-b336-49c022f4a897",
+      "actual_cost_usd": 0.0,
+      "error": null,
+      "idempotent_replay": true,
+      "observation": {
+        "ok": true,
+        "value": 8
+      },
+      "outcome": "success",
+      "status": "succeeded"
+    }
+  ],
+  "checks": {
+    "one_handler_call": true,
+    "one_replay": true
+  },
+  "environment": {
+    "branch": "hardening/ciel-phase4-1-reliability-recovery",
+    "python": "3.12.3"
+  },
+  "handler_calls": 1,
+  "journal_events": [],
+  "limitations": [
+    "single-writer PostgreSQL",
+    "no process sandbox",
+    "handler timeout is observed after return and is not interruptible"
+  ],
+  "objective": "Prouver l\u2019exclusion et l\u2019idempotence entre deux instances d\u2019ActionExecutor dans un m\u00eame processus.",
+  "steps": [
+    "Cr\u00e9er deux ex\u00e9cuteurs distincts sur le m\u00eame registre contr\u00f4l\u00e9",
+    "Soumettre la m\u00eame demande depuis deux threads",
+    "Compter les appels handler",
+    "V\u00e9rifier un r\u00e9sultat original et un replay"
+  ],
+  "title": "D\u00e9monstration 6 \u2014 concurrence m\u00eame cl\u00e9"
+}
+```
+
+## Limites
+
+- single-writer PostgreSQL
+- no process sandbox
+- handler timeout is observed after return and is not interruptible

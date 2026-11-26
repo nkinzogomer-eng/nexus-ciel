@@ -512,7 +512,7 @@ class CognitiveEngine:
             )
         except Exception:
             raise
-        if result.status in {"succeeded", "partial", "uncertain"}:
+        if result.status in {"succeeded", "partial", "uncertain", "interrupted_uncertain"}:
             self.observe(cycle_id, step_id, result.observation, actual_cost_usd=result.actual_cost_usd, outcome=result.outcome or "uncertain")
         elif result.status in {"failed", "rejected"}:
             self.plan_engine.fail_step(cycle.plan_id, step_id, result.error or "action rejected")
